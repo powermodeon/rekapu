@@ -53,6 +53,7 @@ let preloadedFrontAudioData = null; // Pre-loaded front audio DATA (raw bytes) f
 let isLoadingAudio = false;
 let isFrontTTSPlaying = false;
 let isStudyMode = false; // Flag for study session mode (voluntary study vs blocking)
+let mediaBlobUrls = []; // Track blob URLs for cleanup
 
 function safeMarkdownRender(text) {
     if (!text) return '';
@@ -60,18 +61,101 @@ function safeMarkdownRender(text) {
         if (!window.markedConfigured) {
             window.marked.use({
                 breaks: true,
-                gfm: true,
-                renderer: {
-                    html() {
-                        return '';
-                    }
-                }
+                gfm: true
+                // HTML is now allowed for imported Anki cards with media
             });
             window.markedConfigured = true;
         }
-        return window.marked.parse(text);
+        let rendered = window.marked.parse(text);
+        
+        // Sanitize HTML with DOMPurify if available
+        if (window.DOMPurify) {
+            rendered = window.DOMPurify.sanitize(rendered, {
+                ALLOWED_TAGS: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'del', 'code', 'pre', 
+                              'blockquote', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                              'a', 'img', 'audio', 'video', 'source', 'div', 'span', 'table', 
+                              'thead', 'tbody', 'tr', 'th', 'td', 'sup', 'sub', 'hr'],
+                ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'controls', 
+                              'data-media-id', 'data-filename', 'type', 'width', 'height', 'target', 'rel'],
+                ALLOW_DATA_ATTR: true
+            });
+        }
+        
+        // Strip src from media elements with data-media-id (will be resolved from IndexedDB)
+        rendered = stripMediaSrc(rendered);
+        
+        return rendered;
     }
     return text;
+}
+
+/**
+ * Strip src from media elements that have data-media-id
+ * These will be resolved from IndexedDB at render time
+ */
+function stripMediaSrc(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString('<div>' + html + '</div>', 'text/html');
+    const container = doc.body.firstChild;
+    
+    // Find all elements with data-media-id
+    const mediaElements = container.querySelectorAll('[data-media-id]');
+    
+    mediaElements.forEach(function(el) {
+        // Remove src attribute
+        el.removeAttribute('src');
+        
+        // Also remove any source children (for audio/video elements with old format)
+        const sources = el.querySelectorAll('source');
+        sources.forEach(function(source) { source.remove(); });
+    });
+    
+    return container.innerHTML;
+}
+
+/**
+ * Resolve media URLs for elements with data-media-id attributes
+ * Fetches media data from IndexedDB and creates blob URLs
+ */
+async function resolveMediaUrls(containerElement) {
+    // Clean up previous blob URLs
+    mediaBlobUrls.forEach(url => URL.revokeObjectURL(url));
+    mediaBlobUrls = [];
+    
+    // Find all elements with data-media-id (img, audio, video)
+    const mediaElements = containerElement.querySelectorAll('[data-media-id]');
+    
+    for (const element of mediaElements) {
+        const mediaId = element.getAttribute('data-media-id');
+        if (!mediaId) continue;
+        
+        try {
+            const response = await chrome.runtime.sendMessage({
+                type: 'GET_MEDIA_URL',
+                mediaId: mediaId
+            });
+            
+            if (response && response.success && response.data) {
+                // Convert array back to Uint8Array and create blob
+                const uint8Array = new Uint8Array(response.data);
+                const blob = new Blob([uint8Array], { type: response.mimeType || 'application/octet-stream' });
+                const blobUrl = URL.createObjectURL(blob);
+                mediaBlobUrls.push(blobUrl);
+                
+                // Handle different element types
+                if (element.tagName === 'IMG') {
+                    element.src = blobUrl;
+                } else if (element.tagName === 'AUDIO' || element.tagName === 'VIDEO') {
+                    element.src = blobUrl;
+                    element.load();
+                }
+            } else {
+                console.warn('Media not found:', mediaId, response?.error);
+            }
+        } catch (error) {
+            console.error('Error loading media:', mediaId, error);
+        }
+    }
 }
 
 // Helper function to redirect to original URL
@@ -132,7 +216,7 @@ function generateCardInterface(card) {
     }
 }
 
-function generateShowAnswer(card) {
+async function generateShowAnswer(card) {
     const answerContainer = document.getElementById('answerContainer');
     const inputContainer = document.getElementById('inputContainer');
     const answerSection = document.getElementById('answerSection');
@@ -149,8 +233,11 @@ function generateShowAnswer(card) {
         <input type="hidden" id="show-answer-value" value="not-shown" />
     `;
     
-                // Update submit button text for basic cards
-            document.getElementById('submitText').textContent = chrome.i18n.getMessage('showAnswer');
+    // Resolve media URLs for images/audio in the answer
+    await resolveMediaUrls(answerContainer);
+    
+    // Update submit button text for basic cards
+    document.getElementById('submitText').textContent = chrome.i18n.getMessage('showAnswer');
 }
 
 function generateClozeInterface(card) {
@@ -219,7 +306,7 @@ function revealAnswer() {
 /**
  * Show correct answer when user answered incorrectly
  */
-function showCorrectAnswer(correctAnswer) {
+async function showCorrectAnswer(correctAnswer) {
     const answerContainer = document.getElementById('answerContainer');
     const answerSection = document.getElementById('answerSection');
     
@@ -229,6 +316,9 @@ function showCorrectAnswer(correctAnswer) {
         <div class="show-answer-label">Correct Answer</div>
         <div class="show-answer-text markdown-content">${renderedAnswer}</div>
     `;
+    
+    // Resolve media URLs for images/audio in the answer
+    await resolveMediaUrls(answerContainer);
     
     answerSection.style.display = 'block';
     
@@ -635,6 +725,9 @@ async function loadNewCard() {
             
             const cardTextElement = document.getElementById('cardText');
             cardTextElement.innerHTML = `<div class="markdown-content">${safeMarkdownRender(blockingCurrentCard.front)}</div>`;
+            
+            // Resolve media URLs for images/audio in the card front
+            await resolveMediaUrls(cardTextElement);
             
             // Store TTS availability for later (when answer is revealed)
             const ttsInfo = await checkTTSAvailability(blockingCurrentCard);

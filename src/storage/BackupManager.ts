@@ -404,6 +404,66 @@ export class BackupManager {
   }
 
   /**
+   * Fast batch import for new cards (no conflict resolution, no snapshots)
+   * Use when importing large datasets where all cards are new
+   */
+  static async importCardsBatch(
+    backupData: BackupData
+  ): Promise<ImportReport> {
+    const report: ImportReport = {
+      success: false,
+      summary: {
+        cardsImported: 0,
+        cardsSkipped: 0,
+        cardsRenamed: 0,
+        tagsImported: 0,
+        domainsImported: 0,
+        settingsImported: false,
+        statisticsImported: false
+      },
+      conflicts: [],
+      errors: []
+    };
+
+    try {
+      // Import tags first (batch)
+      if (backupData.data.tags) {
+        const tagRecords = Object.values(backupData.data.tags).map(tag => ({
+          id: tag.id,
+          name: tag.name,
+          color: tag.color,
+          created: tag.created
+        }));
+        
+        const tagsResult = await indexedDBManager.setTagsBatch(tagRecords);
+        if (tagsResult.success) {
+          report.summary.tagsImported = tagsResult.data || 0;
+        } else {
+          report.errors.push(`Failed to import tags: ${tagsResult.error}`);
+        }
+      }
+
+      // Import cards (batch)
+      if (backupData.data.cards) {
+        const cardRecords = Object.values(backupData.data.cards);
+        const cardsResult = await indexedDBManager.setCardsBatch(cardRecords);
+        if (cardsResult.success) {
+          report.summary.cardsImported = cardsResult.data || 0;
+        } else {
+          report.errors.push(`Failed to import cards: ${cardsResult.error}`);
+        }
+      }
+
+      report.success = report.errors.length === 0;
+      return report;
+
+    } catch (error) {
+      report.errors.push(`Batch import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return report;
+    }
+  }
+
+  /**
    * Collect backup data based on scope
    */
   private static async collectBackupData(scope: BackupScope): Promise<BackupData> {

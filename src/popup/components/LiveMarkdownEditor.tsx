@@ -47,18 +47,21 @@ export const LiveMarkdownEditor: React.FC<LiveMarkdownEditorProps> = ({
   const renderedContent = useMemo(() => {
     if (!value) return '';
     
+    // Check if content contains HTML (from imported Anki cards)
+    const hasHtml = /<\w+[^>]*>/.test(value);
+    
     if (cardType === 'cloze') {
       const clozeRegex = /\{\{c(\d+)::([^:}]+)(?:::([^}]*))?\}\}/g;
       const matches = [...value.matchAll(clozeRegex)];
       
       if (matches.length === 0) {
-        return renderMarkdown(value);
+        return renderMarkdown(value, hasHtml);
       }
       
       const previews = matches.map((match, index) => {
         const clozeId = parseInt(match[1], 10);
         const maskedText = renderClozeWithMask(value, clozeId, '[...]');
-        const renderedMasked = renderMarkdown(maskedText);
+        const renderedMasked = renderMarkdown(maskedText, hasHtml);
         return `<div class="cloze-preview">
           <div class="cloze-preview-header">Card ${clozeId}:</div>
           ${renderedMasked}
@@ -68,8 +71,56 @@ export const LiveMarkdownEditor: React.FC<LiveMarkdownEditorProps> = ({
       return previews.join('');
     }
     
-    return renderMarkdown(value);
+    return renderMarkdown(value, hasHtml);
   }, [value, cardType]);
+
+  // Resolve media URLs for imported Anki content
+  useEffect(() => {
+    if (!previewRef.current) return;
+    
+    const blobUrls: string[] = [];
+    
+    const resolveMediaUrls = async () => {
+      const mediaElements = previewRef.current?.querySelectorAll('[data-media-id]');
+      if (!mediaElements || mediaElements.length === 0) return;
+      
+      for (const element of mediaElements) {
+        const mediaId = element.getAttribute('data-media-id');
+        if (!mediaId) continue;
+        
+        try {
+          const response = await chrome.runtime.sendMessage({
+            type: 'GET_MEDIA_URL',
+            mediaId: mediaId
+          });
+          
+          if (response && response.success && response.data) {
+            // Convert array back to Uint8Array and create blob
+            const uint8Array = new Uint8Array(response.data);
+            const blob = new Blob([uint8Array], { type: response.mimeType || 'application/octet-stream' });
+            const blobUrl = URL.createObjectURL(blob);
+            blobUrls.push(blobUrl);
+            
+            if (element.tagName === 'IMG') {
+              (element as HTMLImageElement).src = blobUrl;
+            } else if (element.tagName === 'AUDIO' || element.tagName === 'VIDEO') {
+              (element as HTMLAudioElement | HTMLVideoElement).src = blobUrl;
+              (element as HTMLAudioElement | HTMLVideoElement).load();
+            }
+          }
+        } catch (error) {
+          console.error('Error loading media:', mediaId, error);
+        }
+      }
+    };
+    
+    resolveMediaUrls();
+    
+    // Cleanup blob URLs when content changes
+    return () => {
+      blobUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [renderedContent]);
 
   // Sync scroll between editor and preview
   const handleEditorScroll = () => {

@@ -348,7 +348,53 @@ export class BackupAPI {
     }
   }
 
-  
+  /**
+   * Fast batch import for new cards (skips conflict resolution and snapshots)
+   */
+  static async importCardsBatch(
+    backupData: any,
+    onProgress?: ProgressCallback
+  ): Promise<ImportReport> {
+    const operationId = generateOperationId();
+    
+    try {
+      let progressInterval: NodeJS.Timeout | undefined;
+      if (onProgress) {
+        progressInterval = setInterval(async () => {
+          try {
+            const progressResponse = await sendBackgroundMessage('operation_getProgress', { operationId });
+            if (progressResponse.success) {
+              const { progress, status } = progressResponse.data;
+              onProgress(progress, status);
+              if (progress >= 100) {
+                clearInterval(progressInterval);
+              }
+            }
+          } catch {
+            // Ignore
+          }
+        }, 500);
+      }
+
+      const response = await sendBackgroundMessage('backup_importCardsBatch', {
+        backupData,
+        operationId
+      });
+
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
+
+      if (!response.success) {
+        throw new Error(response.error);
+      }
+
+      return response.data;
+
+    } catch (error) {
+      throw new Error(`Batch import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
 
   /**
    * Cancel an active operation

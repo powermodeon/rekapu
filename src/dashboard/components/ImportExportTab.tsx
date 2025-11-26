@@ -49,6 +49,7 @@ import { BackupScope, ConflictStrategy, ImportReport } from '../../types/storage
 import { DataConflict, ConflictResolver } from '../../storage/ConflictResolver';
 import { DataSnapshot, ValidationResult } from '../../storage/ImportTransaction';
 import { AnkiImporter } from '../../utils/ankiImporter';
+import { ApkgImporter } from '../../utils/apkgImporter';
 import { TagSelector } from './TagSelector';
 import { t } from '../../utils/i18n';
 
@@ -88,9 +89,11 @@ export const ImportExportTab: React.FC = () => {
   
   // Anki import states
   const [ankiFile, setAnkiFile] = useState<File | null>(null);
+  const [ankiFileType, setAnkiFileType] = useState<'txt' | 'apkg' | null>(null);
   const [ankiPreview, setAnkiPreview] = useState<Array<{ front: string; back: string; tags: string[] }> | null>(null);
   const [ankiError, setAnkiError] = useState<string | null>(null);
   const [ankiAdditionalTags, setAnkiAdditionalTags] = useState<string[]>([]);
+  const [ankiStats, setAnkiStats] = useState<{ totalCards?: number; mediaFiles?: number } | null>(null);
   
   // Recovery states
   const [snapshots, setSnapshots] = useState<DataSnapshot[]>([]);
@@ -363,37 +366,78 @@ export const ImportExportTab: React.FC = () => {
     setAnkiFile(file);
     setAnkiError(null);
     setAnkiPreview(null);
+    setAnkiStats(null);
+
+    const isApkg = file.name.toLowerCase().endsWith('.apkg');
+    setAnkiFileType(isApkg ? 'apkg' : 'txt');
 
     try {
-      // Parse for preview and validation
-      const result = await AnkiImporter.parse(file);
-      
-      if (!result.success) {
-        setAnkiError(result.errors.join(', '));
-        
-        // Show toast for HTML rejection
-        if (result.errors.some(e => e.includes('HTML'))) {
-          toast({
-            title: t('htmlExportDetected'),
-            description: result.errors[0],
-            status: 'error',
-            duration: 10000,
-            isClosable: true,
+      if (isApkg) {
+        setProgress({
+          isActive: true,
+          type: 'import',
+          progress: 0,
+          status: 'Loading import tools...'
+        });
+
+        const result = await ApkgImporter.parse(file, {
+          onProgress: (prog, status) => {
+            setProgress(prev => ({ ...prev, progress: prog, status }));
+          }
+        });
+
+        setProgress(prev => ({ ...prev, isActive: false }));
+
+        if (!result.success) {
+          setAnkiError(result.errors.join(', '));
+        } else {
+          setAnkiPreview(result.previewCards);
+          setAnkiStats({
+            totalCards: result.stats.totalCards,
+            mediaFiles: result.stats.mediaFiles
           });
+          setBackupData(result.backupData);
+          
+          if (result.warnings.length > 0) {
+            toast({
+              title: t('importWarnings'),
+              description: `${result.warnings.length} warning(s) detected`,
+              status: 'warning',
+              duration: 5000,
+            });
+          }
         }
       } else {
-        setAnkiPreview(result.previewCards);
+        const result = await AnkiImporter.parse(file);
         
-        if (result.warnings.length > 0) {
-          toast({
-            title: t('importWarnings'),
-            description: t('xWarningsDetected', [String(result.warnings.length), result.warnings.length !== 1 ? 's' : '']),
-            status: 'warning',
-            duration: 5000,
-          });
+        if (!result.success) {
+          setAnkiError(result.errors.join(', '));
+          
+          if (result.errors.some(e => e.includes('HTML'))) {
+            toast({
+              title: t('htmlExportDetected'),
+              description: result.errors[0],
+              status: 'error',
+              duration: 10000,
+              isClosable: true,
+            });
+          }
+        } else {
+          setAnkiPreview(result.previewCards);
+          setBackupData(result.backupData);
+          
+          if (result.warnings.length > 0) {
+            toast({
+              title: t('importWarnings'),
+              description: t('xWarningsDetected', [String(result.warnings.length), result.warnings.length !== 1 ? 's' : '']),
+              status: 'warning',
+              duration: 5000,
+            });
+          }
         }
       }
     } catch (error) {
+      setProgress(prev => ({ ...prev, isActive: false }));
       setAnkiError(error instanceof Error ? error.message : t('unknownError'));
       toast({
         title: t('parseFailed'),
@@ -405,7 +449,7 @@ export const ImportExportTab: React.FC = () => {
   };
 
   const handleAnkiImport = async () => {
-    if (!ankiFile || ankiError) return;
+    if (!ankiFile || ankiError || !backupData) return;
     
     try {
       setProgress({
@@ -414,13 +458,45 @@ export const ImportExportTab: React.FC = () => {
         progress: 0,
         status: t('importingAnkiCards')
       });
+
+      // Add additional tags to cards if specified
+      let finalBackupData = backupData;
       
-      const report = await BackupAPI.importAnki(
-        ankiFile,
-        importStrategy,
-        ankiAdditionalTags,
-        progressCallback
-      );
+      if (ankiAdditionalTags.length > 0 && finalBackupData?.data?.cards) {
+        // Clone and add tags directly without re-parsing
+        const updatedCards: Record<string, any> = {};
+        for (const [cardId, card] of Object.entries(finalBackupData.data.cards as Record<string, any>)) {
+          const existingTags = (card.tags as string[]) || [];
+          const newTags = [...new Set([...existingTags, ...ankiAdditionalTags])];
+          updatedCards[cardId] = { ...card, tags: newTags };
+        }
+        
+        // Add additional tags to tags record
+        const updatedTags: Record<string, any> = { ...(finalBackupData.data.tags || {}) };
+        const now = Date.now();
+        for (const tagName of ankiAdditionalTags) {
+          if (!updatedTags[tagName]) {
+            updatedTags[tagName] = {
+              id: `tag_${now}_${Math.random().toString(36).substr(2, 9)}`,
+              name: tagName,
+              color: `hsl(${Math.abs(tagName.split('').reduce((a, c) => c.charCodeAt(0) + ((a << 5) - a), 0) % 360)}, 70%, 60%)`,
+              created: now
+            };
+          }
+        }
+        
+        finalBackupData = {
+          ...finalBackupData,
+          data: {
+            ...finalBackupData.data,
+            cards: updatedCards,
+            tags: updatedTags
+          }
+        };
+      }
+      
+      // Use fast batch import
+      const report = await BackupAPI.importCardsBatch(finalBackupData, progressCallback);
       
       setImportReport(report);
       setProgress(prev => ({ ...prev, isActive: false }));
@@ -436,9 +512,12 @@ export const ImportExportTab: React.FC = () => {
         
         // Reset Anki import state
         setAnkiFile(null);
+        setAnkiFileType(null);
         setAnkiPreview(null);
         setAnkiError(null);
         setAnkiAdditionalTags([]);
+        setAnkiStats(null);
+        setBackupData(null);
         if (ankiFileInputRef.current) {
           ankiFileInputRef.current.value = '';
         }
@@ -615,16 +694,12 @@ export const ImportExportTab: React.FC = () => {
               <AlertIcon color="#8AB4F8" />
               <Box flex="1">
                 <AlertTitle color="#e8eaed" fontSize="sm" mb={1}>
-                  {t('howToExportAnki')}
+                  Supported Formats
                 </AlertTitle>
                 <AlertDescription color="#9aa0a6" fontSize="sm">
-                  1. {t('ankiStep1')} <Code fontSize="xs" bg="#202124">{t('fileExport')}</Code>
+                  <strong>.apkg</strong> (recommended) — Native Anki format with images, audio, and formatting
                   <br />
-                  2. {t('ankiStep2')} <Code fontSize="xs" bg="#202124">{t('notesInPlainText')}</Code>
-                  <br />
-                  3. <strong>{t('ankiStep3')}</strong> {t('ankiStep3Full')}
-                  <br />
-                  4. {t('ankiStep4')}
+                  <strong>.txt</strong> — Plain text export (File → Export → Notes in Plain Text)
                 </AlertDescription>
               </Box>
             </Alert>
@@ -635,7 +710,7 @@ export const ImportExportTab: React.FC = () => {
                 type="file"
                 ref={ankiFileInputRef}
                 onChange={handleAnkiFileSelect}
-                accept=".txt"
+                accept=".txt,.apkg"
                 bg="#292a2d"
                 border="1px solid #3c4043"
                 color="#e8eaed"
@@ -645,6 +720,9 @@ export const ImportExportTab: React.FC = () => {
               {ankiFile && !ankiError && (
                 <Text color="#9aa0a6" fontSize="sm" mt={2}>
                   {t('selectedFile', [ankiFile.name, (ankiFile.size / 1024).toFixed(1)])}
+                  {ankiStats && (
+                    <> — {ankiStats.totalCards} cards{ankiStats.mediaFiles ? `, ${ankiStats.mediaFiles} media files` : ''}</>
+                  )}
                 </Text>
               )}
             </FormControl>
