@@ -631,6 +631,52 @@ export class IndexedDBManager {
   }
 
   /**
+   * Batch insert/update cards in a single transaction
+   */
+  async setCardsBatch(cards: CardRecord[]): Promise<IndexedDBResult<number>> {
+    if (cards.length === 0) {
+      return { success: true, data: 0 };
+    }
+
+    return this.executeTransaction(
+      { stores: [STORE_NAMES.CARDS], mode: 'readwrite' },
+      async (stores) => {
+        const store = stores[STORE_NAMES.CARDS];
+        let count = 0;
+        for (const card of cards) {
+          if (SchemaValidator.validateRecord(card, STORE_NAMES.CARDS)) {
+            store.put(card);
+            count++;
+          }
+        }
+        return count;
+      }
+    );
+  }
+
+  /**
+   * Batch insert/update tags in a single transaction
+   */
+  async setTagsBatch(tags: TagRecord[]): Promise<IndexedDBResult<number>> {
+    if (tags.length === 0) {
+      return { success: true, data: 0 };
+    }
+
+    return this.executeTransaction(
+      { stores: [STORE_NAMES.TAGS], mode: 'readwrite' },
+      async (stores) => {
+        const store = stores[STORE_NAMES.TAGS];
+        let count = 0;
+        for (const tag of tags) {
+          store.put(tag);
+          count++;
+        }
+        return count;
+      }
+    );
+  }
+
+  /**
    * Remove card
    */
   async removeCard(id: string): Promise<IndexedDBResult<boolean>> {

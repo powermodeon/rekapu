@@ -297,6 +297,22 @@ export const INDEXEDDB_SCHEMA: IndexedDBSchema = {
         lastAccessedAndCount: { keyPath: ['lastAccessedAt', 'accessCount'] },
         providerAndAccessed: { keyPath: ['provider', 'lastAccessedAt'] }
       }
+    },
+
+    // =================== MEDIA FILES ===================
+    /**
+     * Media files from Anki .apkg imports (images, audio, video)
+     * Stored as Blobs with deduplication via content hash
+     */
+    media: {
+      keyPath: 'id',
+      indexes: {
+        id: { keyPath: 'id', unique: true },
+        hash: { keyPath: 'hash', unique: false },
+        originalName: { keyPath: 'originalName', unique: false },
+        createdAt: { keyPath: 'createdAt' },
+        mimeType: { keyPath: 'mimeType' }
+      }
     }
   }
 };
@@ -579,7 +595,8 @@ export const STORE_NAMES = {
   DOMAIN_BLOCKING_STATS: 'domainBlockingStats',
   TAG_PERFORMANCE: 'tagPerformance',
   SNAPSHOTS: 'snapshots',
-  AUDIO_CACHE: 'audioCache'
+  AUDIO_CACHE: 'audioCache',
+  MEDIA: 'media'
 } as const;
 
 /**

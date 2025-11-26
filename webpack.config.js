@@ -9,7 +9,7 @@ module.exports = {
     popup: './src/popup/index.tsx',
     background: './src/background/background.ts',
     contentScript: './src/content/contentScript.ts',
-    dashboard: './src/dashboard/index.tsx', // New entry point
+    dashboard: './src/dashboard/index.tsx',
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -38,6 +38,10 @@ module.exports = {
         test: /\.json$/,
         type: 'json',
       },
+      {
+        test: /\.wasm$/,
+        type: 'asset/resource',
+      },
     ],
   },
   resolve: {
@@ -54,12 +58,13 @@ module.exports = {
         { from: 'src/manifest.json', to: 'manifest.json' },
         { from: 'src/blocked.html', to: 'blocked.html' },
         { from: 'src/blocked.js', to: 'blocked.js' },
-        { from: 'src/dashboard.html', to: 'dashboard.html' }, // Copy the HTML file
-        { from: 'src/_locales/', to: '_locales/', noErrorOnMissing: false }, // Copy i18n locales
-        { from: 'src/vendor/marked.js', to: 'vendor/marked.js' }, // Copy marked.js
-        { from: 'src/styles/', to: 'styles/', noErrorOnMissing: true }, // Copy styles
-        { from: 'src/vendor/', to: 'vendor/', noErrorOnMissing: true }, // Copy vendor libraries without processing
-        { from: 'src/icons/', to: 'icons/', noErrorOnMissing: false }, // Copy extension icons
+        { from: 'src/dashboard.html', to: 'dashboard.html' },
+        { from: 'src/_locales/', to: '_locales/', noErrorOnMissing: false },
+        { from: 'src/vendor/marked.js', to: 'vendor/marked.js' },
+        { from: 'src/styles/', to: 'styles/', noErrorOnMissing: true },
+        { from: 'src/vendor/', to: 'vendor/', noErrorOnMissing: true },
+        { from: 'src/icons/', to: 'icons/', noErrorOnMissing: false },
+        { from: 'node_modules/sql.js/dist/sql-wasm.wasm', to: 'sql-wasm.wasm' },
       ],
     }),
     new HtmlWebpackPlugin({

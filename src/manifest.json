@@ -4,6 +4,9 @@
   "version": "1.0.1",
   "description": "__MSG_extDescription__",
   "default_locale": "en",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
@@ -38,7 +41,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["popup.html", "blocked.html", "blocked.js", "dashboard.html", "dashboard.js", "vendor/marked.js", "styles/markdown.css"],
+      "resources": ["popup.html", "blocked.html", "blocked.js", "dashboard.html", "dashboard.js", "vendor/marked.js", "styles/markdown.css", "sql-wasm.wasm", "*.js"],
       "matches": ["<all_urls>"]
     }
   ]

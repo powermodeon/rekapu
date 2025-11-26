@@ -761,6 +761,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           case 'backup_importAnki':
             result = await handleImportAnki(message);
             break;
+          case 'backup_importCardsBatch':
+            result = await handleImportCardsBatch(message);
+            break;
 
           case 'operation_getProgress':
             result = await handleGetOperationProgress(message);
@@ -814,6 +817,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             break;
           case 'SYNTHESIZE_TTS':
             result = await handleSynthesizeTTS(message);
+            break;
+          case 'GET_MEDIA_URL':
+            result = await handleGetMediaUrl(message);
             break;
           case 'OPEN_POPUP':
             result = await handleOpenPopup(message);
@@ -2042,6 +2048,48 @@ async function handleSynthesizeTTS(message: any): Promise<{ success: boolean; au
 }
 
 /**
+ * Handle getting media data from IndexedDB
+ * Returns raw data that the page can convert to a blob URL
+ */
+async function handleGetMediaUrl(message: any): Promise<{ success: boolean; data?: number[]; mimeType?: string; error?: string }> {
+  try {
+    const { mediaId } = message;
+    
+    if (!mediaId) {
+      return { success: false, error: 'Media ID is required' };
+    }
+
+    // Direct IndexedDB access - no module imports to avoid DOM dependencies
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('RekapuDB');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+
+    const media = await new Promise<any>((resolve, reject) => {
+      const tx = db.transaction('media', 'readonly');
+      const request = tx.objectStore('media').get(mediaId);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+
+    db.close();
+
+    if (media && media.data) {
+      // Convert Blob to ArrayBuffer, then to array for message passing
+      const arrayBuffer = await media.data.arrayBuffer();
+      const dataArray = Array.from(new Uint8Array(arrayBuffer));
+      return { success: true, data: dataArray, mimeType: media.mimeType };
+    } else {
+      return { success: false, error: 'Media not found' };
+    }
+  } catch (error) {
+    console.error('Error getting media data:', error);
+    return { success: false, error: `Failed to get media: ${error}` };
+  }
+}
+
+/**
  * Handle opening the extension popup
  */
 async function handleOpenPopup(message: any): Promise<any> {
@@ -2711,6 +2759,44 @@ async function handleImportWithResolution(message: any): Promise<any> {
     return {
       success: false,
       error: `Import with resolution failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+    };
+  }
+}
+
+/**
+ * Handle fast batch import (no conflict resolution, no snapshots)
+ */
+async function handleImportCardsBatch(message: any): Promise<any> {
+  try {
+    const { backupData, operationId } = message.data;
+    
+    if (operationId) {
+      activeOperations.set(operationId, {
+        type: 'import',
+        progress: 0,
+        status: 'Importing cards...'
+      });
+    }
+
+    if (operationId) {
+      updateOperationProgress(operationId, 50, 'Saving to database...');
+    }
+
+    const result = await BackupManager.importCardsBatch(backupData);
+
+    if (operationId) {
+      updateOperationProgress(operationId, 100, 'Import complete');
+      activeOperations.delete(operationId);
+    }
+
+    return {
+      success: true,
+      data: result
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: `Batch import failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     };
   }
 }
