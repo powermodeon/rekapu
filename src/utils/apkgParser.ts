@@ -113,19 +113,30 @@ export class ApkgParser {
 
     try {
       const zip = await JSZip.loadAsync(file);
-      const dbFile = zip.file('collection.anki2') || zip.file('collection.anki21');
+      
+      // Try different database formats (newest to oldest)
+      const dbFile = zip.file('collection.anki21b') || 
+                     zip.file('collection.anki21') || 
+                     zip.file('collection.anki2');
       
       if (!dbFile) {
-        result.errors.push('Invalid .apkg file: no collection database found');
+        result.errors.push('Invalid .apkg file: no collection database found. This may be a very old Anki format.');
         return result;
       }
 
+      const isNewFormat = dbFile.name === 'collection.anki21b';
       const dbBuffer = await dbFile.async('uint8array');
       const SQL = await this.getSqlJs();
       const db = new SQL.Database(dbBuffer);
 
       try {
-        this.parseCollection(db, result);
+        if (isNewFormat) {
+          // Anki 2.1.28+ format with separate notetypes/decks tables
+          this.parseCollectionNew(db, result);
+        } else {
+          // Legacy format with models/decks in col table
+          this.parseCollection(db, result);
+        }
         this.parseNotes(db, result);
         this.parseCards(db, result);
         await this.parseMedia(zip, result);
@@ -135,12 +146,21 @@ export class ApkgParser {
       }
 
     } catch (error) {
-      result.errors.push(`Parse error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMsg.includes('no such table') || errorMsg.includes('no such column')) {
+        result.errors.push(`Unsupported Anki format. Please export from Anki 2.1+ using "Export" > "Anki Deck Package (.apkg)"`);
+      } else {
+        result.errors.push(`Parse error: ${errorMsg}`);
+      }
     }
 
     return result;
   }
 
+  /**
+   * Parse collection metadata from legacy format (Anki < 2.1.28)
+   * Models and decks are stored as JSON in the col table
+   */
   private static parseCollection(db: SqlJsDatabase, result: ApkgParseResult): void {
     try {
       const colResult = db.exec('SELECT models, decks, crt FROM col LIMIT 1');
@@ -179,6 +199,83 @@ export class ApkgParser {
       }
     } catch (error) {
       result.errors.push(`Failed to parse collection metadata: ${error instanceof Error ? error.message : 'Unknown'}`);
+    }
+  }
+
+  /**
+   * Parse collection metadata from new format (Anki 2.1.28+)
+   * Models are in 'notetypes' table, decks in 'decks' table
+   */
+  private static parseCollectionNew(db: SqlJsDatabase, result: ApkgParseResult): void {
+    try {
+      // Get collection creation time
+      const colResult = db.exec('SELECT crt FROM col LIMIT 1');
+      if (colResult.length > 0 && colResult[0].values.length > 0) {
+        result.collectionCreated = (colResult[0].values[0][0] as number) * 1000;
+      }
+
+      // Parse notetypes (models) - new format stores them in separate table
+      const notetypesResult = db.exec('SELECT id, name, config FROM notetypes');
+      if (notetypesResult.length > 0) {
+        for (const row of notetypesResult[0].values) {
+          const [id, name, configBlob] = row;
+          const modelId = String(id);
+          
+          // Config is stored as a protobuf blob in new format, but we can try JSON first
+          let fields: Array<{ name: string; ord: number }> = [];
+          let templates: Array<{ name: string; qfmt: string; afmt: string; ord: number }> = [];
+          let modelType = 0;
+
+          // Try to get fields from fields table
+          const fieldsResult = db.exec(`SELECT name, ord FROM fields WHERE ntid = ${id} ORDER BY ord`);
+          if (fieldsResult.length > 0) {
+            fields = fieldsResult[0].values.map(([fname, ford]) => ({
+              name: String(fname),
+              ord: Number(ford)
+            }));
+          }
+
+          // Try to get templates from templates table
+          const templatesResult = db.exec(`SELECT name, qfmt, afmt, ord FROM templates WHERE ntid = ${id} ORDER BY ord`);
+          if (templatesResult.length > 0) {
+            templates = templatesResult[0].values.map(([tname, qfmt, afmt, tord]) => ({
+              name: String(tname),
+              qfmt: String(qfmt),
+              afmt: String(afmt),
+              ord: Number(tord)
+            }));
+          }
+
+          // Check if it's a cloze type (type is in config, but we can infer from template)
+          if (templates.some(t => t.qfmt.includes('{{cloze:') || t.afmt.includes('{{cloze:'))) {
+            modelType = 1;
+          }
+
+          result.models.set(modelId, {
+            id: modelId,
+            name: String(name),
+            type: modelType,
+            fields,
+            templates
+          });
+        }
+      }
+
+      // Parse decks - new format stores them in separate table
+      const decksResult = db.exec('SELECT id, name FROM decks');
+      if (decksResult.length > 0) {
+        for (const row of decksResult[0].values) {
+          const [id, name] = row;
+          result.decks.set(String(id), {
+            id: String(id),
+            name: String(name)
+          });
+        }
+      }
+    } catch (error) {
+      // If new format tables don't exist, fall back to legacy
+      result.warnings.push('Trying legacy format parser...');
+      this.parseCollection(db, result);
     }
   }
 
