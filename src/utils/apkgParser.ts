@@ -1,9 +1,11 @@
 /**
  * ApkgParser - Parse Anki .apkg files (ZIP containing SQLite database + media)
  * Uses lazy loading for sql.js to keep main bundle size small
+ * Supports zstd-compressed databases (Anki 2.1.50+)
  */
 
 import JSZip from 'jszip';
+import { decompress as zstdDecompress } from 'fzstd';
 
 export interface AnkiNote {
   id: string;
@@ -98,6 +100,18 @@ export class ApkgParser {
     return this.sqlPromise;
   }
 
+  /**
+   * Check if a table exists in the database
+   */
+  private static hasTable(db: SqlJsDatabase, tableName: string): boolean {
+    try {
+      const result = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
+      return result.length > 0 && result[0].values.length > 0;
+    } catch {
+      return false;
+    }
+  }
+
   static async parse(file: File): Promise<ApkgParseResult> {
     const result: ApkgParseResult = {
       success: false,
@@ -124,19 +138,42 @@ export class ApkgParser {
         return result;
       }
 
-      const isNewFormat = dbFile.name === 'collection.anki21b';
-      const dbBuffer = await dbFile.async('uint8array');
+      let dbBuffer = await dbFile.async('uint8array');
+      
+      // Check if database is zstd-compressed (Anki 2.1.50+)
+      // Zstd magic bytes: 0x28 0xB5 0x2F 0xFD
+      if (dbBuffer[0] === 0x28 && dbBuffer[1] === 0xB5 && dbBuffer[2] === 0x2F && dbBuffer[3] === 0xFD) {
+        try {
+          dbBuffer = zstdDecompress(dbBuffer);
+        } catch (decompressError) {
+          result.errors.push(`Failed to decompress database: ${decompressError instanceof Error ? decompressError.message : 'Unknown error'}`);
+          return result;
+        }
+      }
+      
       const SQL = await this.getSqlJs();
       const db = new SQL.Database(dbBuffer);
 
       try {
-        if (isNewFormat) {
-          // Anki 2.1.28+ format with separate notetypes/decks tables
-          this.parseCollectionNew(db, result);
-        } else {
-          // Legacy format with models/decks in col table
-          this.parseCollection(db, result);
+        // Try to detect format and parse collection metadata
+        // First check if notetypes table exists (new format)
+        // If not, check if col.models has data (legacy format)
+        // Some hybrid formats have both but models is empty
+        
+        const hasNotetypesTable = this.hasTable(db, 'notetypes');
+        
+        // Try legacy format first (col.models JSON)
+        const legacyWorked = this.parseCollectionLegacy(db, result);
+        
+        if (!legacyWorked) {
+          // Legacy didn't work (models is empty), try new format tables
+          if (hasNotetypesTable) {
+            this.parseCollectionNew(db, result);
+          } else {
+            result.errors.push('No models found in database - unsupported Anki format');
+          }
         }
+        
         this.parseNotes(db, result);
         this.parseCards(db, result);
         await this.parseMedia(zip, result);
@@ -160,19 +197,36 @@ export class ApkgParser {
   /**
    * Parse collection metadata from legacy format (Anki < 2.1.28)
    * Models and decks are stored as JSON in the col table
+   * Returns true if successfully parsed models, false if models column is empty
    */
-  private static parseCollection(db: SqlJsDatabase, result: ApkgParseResult): void {
+  private static parseCollectionLegacy(db: SqlJsDatabase, result: ApkgParseResult): boolean {
     try {
-      const colResult = db.exec('SELECT models, decks, crt FROM col LIMIT 1');
+      const colResult = db.exec('SELECT * FROM col LIMIT 1');
       if (colResult.length === 0 || colResult[0].values.length === 0) {
-        result.errors.push('No collection metadata found');
-        return;
+        return false;
       }
 
-      const [modelsJson, decksJson, crt] = colResult[0].values[0];
-      result.collectionCreated = (crt as number) * 1000;
+      const colNames = colResult[0].columns;
+      const row = colResult[0].values[0];
+      
+      const modelsIdx = colNames.indexOf('models');
+      const decksIdx = colNames.indexOf('decks');
+      const crtIdx = colNames.indexOf('crt');
 
-      const modelsData = JSON.parse(modelsJson as string);
+      if (crtIdx >= 0) {
+        result.collectionCreated = (row[crtIdx] as number) * 1000;
+      }
+
+      // Check if models column has actual data
+      if (modelsIdx < 0) {
+        return false;
+      }
+      
+      const modelsJson = row[modelsIdx];
+      if (!modelsJson || typeof modelsJson !== 'string' || !modelsJson.trim()) {
+        return false;
+      }
+      const modelsData = JSON.parse(modelsJson);
       for (const [id, model] of Object.entries(modelsData)) {
         const m = model as any;
         result.models.set(id, {
@@ -189,16 +243,24 @@ export class ApkgParser {
         });
       }
 
-      const decksData = JSON.parse(decksJson as string);
-      for (const [id, deck] of Object.entries(decksData)) {
-        const d = deck as any;
-        result.decks.set(id, {
-          id,
-          name: d.name
-        });
+      // Parse decks
+      if (decksIdx >= 0) {
+        const decksJson = row[decksIdx];
+        if (decksJson && typeof decksJson === 'string' && decksJson.trim()) {
+          const decksData = JSON.parse(decksJson);
+          for (const [id, deck] of Object.entries(decksData)) {
+            const d = deck as any;
+            result.decks.set(id, {
+              id,
+              name: d.name
+            });
+          }
+        }
       }
+      
+      return true;
     } catch (error) {
-      result.errors.push(`Failed to parse collection metadata: ${error instanceof Error ? error.message : 'Unknown'}`);
+      return false;
     }
   }
 
@@ -214,6 +276,12 @@ export class ApkgParser {
         result.collectionCreated = (colResult[0].values[0][0] as number) * 1000;
       }
 
+      // Detect template table schema (varies by Anki version)
+      const templatesSchema = db.exec("PRAGMA table_info(templates)");
+      const templateCols = templatesSchema.length > 0 
+        ? templatesSchema[0].values.map(row => row[1]) 
+        : [];
+
       // Parse notetypes (models) - new format stores them in separate table
       const notetypesResult = db.exec('SELECT id, name, config FROM notetypes');
       if (notetypesResult.length > 0) {
@@ -221,7 +289,6 @@ export class ApkgParser {
           const [id, name, configBlob] = row;
           const modelId = String(id);
           
-          // Config is stored as a protobuf blob in new format, but we can try JSON first
           let fields: Array<{ name: string; ord: number }> = [];
           let templates: Array<{ name: string; qfmt: string; afmt: string; ord: number }> = [];
           let modelType = 0;
@@ -235,18 +302,34 @@ export class ApkgParser {
             }));
           }
 
-          // Try to get templates from templates table
-          const templatesResult = db.exec(`SELECT name, qfmt, afmt, ord FROM templates WHERE ntid = ${id} ORDER BY ord`);
-          if (templatesResult.length > 0) {
-            templates = templatesResult[0].values.map(([tname, qfmt, afmt, tord]) => ({
-              name: String(tname),
-              qfmt: String(qfmt),
-              afmt: String(afmt),
-              ord: Number(tord)
-            }));
+          // Get templates - column names vary by Anki version
+          // Newer: id, ntid, ord, name, mtime_secs, usn, config
+          // Older: id, ntid, ord, name, qfmt, afmt, bqfmt, bafmt, did
+          if (templateCols.includes('qfmt')) {
+            // Old-style templates table with qfmt/afmt columns
+            const templatesResult = db.exec(`SELECT name, qfmt, afmt, ord FROM templates WHERE ntid = ${id} ORDER BY ord`);
+            if (templatesResult.length > 0) {
+              templates = templatesResult[0].values.map(([tname, qfmt, afmt, tord]) => ({
+                name: String(tname),
+                qfmt: String(qfmt),
+                afmt: String(afmt),
+                ord: Number(tord)
+              }));
+            }
+          } else if (templateCols.includes('config')) {
+            // New-style templates table with config blob (protobuf)
+            const templatesResult = db.exec(`SELECT name, ord, config FROM templates WHERE ntid = ${id} ORDER BY ord`);
+            if (templatesResult.length > 0) {
+              for (const [tname, tord, configData] of templatesResult[0].values) {
+                const template = this.parseTemplateConfig(configData, String(tname), Number(tord));
+                if (template) {
+                  templates.push(template);
+                }
+              }
+            }
           }
 
-          // Check if it's a cloze type (type is in config, but we can infer from template)
+          // Check if it's a cloze type
           if (templates.some(t => t.qfmt.includes('{{cloze:') || t.afmt.includes('{{cloze:'))) {
             modelType = 1;
           }
@@ -273,9 +356,72 @@ export class ApkgParser {
         }
       }
     } catch (error) {
-      // If new format tables don't exist, fall back to legacy
-      result.warnings.push('Trying legacy format parser...');
-      this.parseCollection(db, result);
+      result.errors.push(`Failed to parse collection: ${error instanceof Error ? error.message : 'Unknown'}`);
+    }
+  }
+
+  /**
+   * Parse template config blob (protobuf format in newer Anki)
+   * The config contains qfmt and afmt as fields 1 and 2
+   */
+  private static parseTemplateConfig(
+    configData: any, 
+    name: string, 
+    ord: number
+  ): { name: string; qfmt: string; afmt: string; ord: number } | null {
+    try {
+      if (!configData) {
+        return { name, qfmt: '', afmt: '', ord };
+      }
+
+      // configData is a Uint8Array containing protobuf
+      // Protobuf structure for CardTemplate:
+      // field 1 (tag 0x0a): qfmt (string)
+      // field 2 (tag 0x12): afmt (string)
+      // We'll do simple protobuf parsing for strings
+      
+      const bytes = configData instanceof Uint8Array 
+        ? configData 
+        : new Uint8Array(configData);
+      
+      let qfmt = '';
+      let afmt = '';
+      let pos = 0;
+
+      while (pos < bytes.length) {
+        const tag = bytes[pos];
+        pos++;
+        
+        if (pos >= bytes.length) break;
+
+        // Read varint length
+        let length = 0;
+        let shift = 0;
+        while (pos < bytes.length) {
+          const b = bytes[pos];
+          pos++;
+          length |= (b & 0x7f) << shift;
+          if ((b & 0x80) === 0) break;
+          shift += 7;
+        }
+
+        if (pos + length > bytes.length) break;
+
+        const fieldData = bytes.slice(pos, pos + length);
+        const fieldStr = new TextDecoder().decode(fieldData);
+        pos += length;
+
+        // Tag 0x0a = field 1 (qfmt), Tag 0x12 = field 2 (afmt)
+        if (tag === 0x0a) {
+          qfmt = fieldStr;
+        } else if (tag === 0x12) {
+          afmt = fieldStr;
+        }
+      }
+
+      return { name, qfmt, afmt, ord };
+    } catch {
+      return { name, qfmt: '', afmt: '', ord };
     }
   }
 
@@ -339,7 +485,25 @@ export class ApkgParser {
         return;
       }
 
-      const mediaJson = await mediaFile.async('string');
+      let mediaBytes = await mediaFile.async('uint8array');
+      
+      // Check if media file is zstd compressed (Anki 2.1.50+)
+      if (mediaBytes[0] === 0x28 && mediaBytes[1] === 0xB5 && mediaBytes[2] === 0x2F && mediaBytes[3] === 0xFD) {
+        try {
+          mediaBytes = zstdDecompress(mediaBytes);
+        } catch (e) {
+          result.warnings.push('Failed to decompress media mapping');
+          return;
+        }
+      }
+      
+      const mediaJson = new TextDecoder().decode(mediaBytes);
+      
+      // Handle empty media file
+      if (!mediaJson.trim() || mediaJson.trim() === '{}') {
+        return;
+      }
+      
       const mediaMapping: MediaMapping = JSON.parse(mediaJson);
 
       for (const [numberedName, originalName] of Object.entries(mediaMapping)) {

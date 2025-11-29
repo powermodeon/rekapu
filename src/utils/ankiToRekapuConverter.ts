@@ -304,7 +304,7 @@ export class AnkiToRekapuConverter {
    * 
    * @param template - The Anki template (qfmt or afmt)
    * @param fieldMap - Map of field names to values
-   * @param isBackTemplate - If true, strips {{FrontSide}} and content before <hr id=answer>
+   * @param isBackTemplate - If true, strips {{FrontSide}} (we store front/back separately)
    */
   private static renderTemplate(
     template: string,
@@ -313,16 +313,10 @@ export class AnkiToRekapuConverter {
   ): string {
     let result = template;
     
-    // For back templates, remove {{FrontSide}} - we don't want to duplicate content
+    // For back templates, just remove {{FrontSide}} - we store front/back separately
+    // The qfmt IS the front, the afmt IS the back - no need to split on <hr>
     if (isBackTemplate) {
       result = result.replace(/\{\{FrontSide\}\}/gi, '');
-      
-      // Also remove content before <hr id=answer> or <hr id="answer"> (Anki convention)
-      const hrMatch = result.match(/<hr[^>]*id\s*=\s*["']?answer["']?[^>]*>/i);
-      if (hrMatch) {
-        const hrIndex = result.indexOf(hrMatch[0]);
-        result = result.substring(hrIndex + hrMatch[0].length);
-      }
     }
     
     // Trim leading/trailing whitespace to prevent markdown code block issues
@@ -352,11 +346,17 @@ export class AnkiToRekapuConverter {
       }
     );
     
-    // Handle {{type:FieldName}} - type-in answer (just show the field value)
+    // Handle {{type:FieldName}} - type-in answer field
+    // On front template: hide it (user would type answer, we don't have that UI)
+    // On back template: show the field value (the correct answer)
     result = result.replace(
       /\{\{type:([^}]+)\}\}/g,
       (match, fieldName) => {
-        return this.getFieldValue(fieldMap, fieldName.trim());
+        if (isBackTemplate) {
+          return this.getFieldValue(fieldMap, fieldName.trim());
+        }
+        // On front, don't show the answer - it would give it away
+        return '';
       }
     );
     
