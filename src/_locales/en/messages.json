@@ -1100,7 +1100,46 @@
     "message": "Import from Anki"
   },
   "selectAnkiFile": {
-    "message": "Select Anki .txt File"
+    "message": "Select Anki File (.apkg or .txt)"
+  },
+  "ankiSupportedFormats": {
+    "message": "Supported Formats"
+  },
+  "ankiFormatApkg": {
+    "message": ".apkg (recommended) — Native Anki format with images, audio, and formatting"
+  },
+  "ankiFormatTxt": {
+    "message": ".txt — Plain text export (File → Export → Notes in Plain Text)"
+  },
+  "ankiStatsInfo": {
+    "message": "$CARDS$ cards$MEDIA$",
+    "placeholders": {
+      "cards": {
+        "content": "$1"
+      },
+      "media": {
+        "content": "$2"
+      }
+    }
+  },
+  "ankiMediaFiles": {
+    "message": ", $COUNT$ media files",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "xWarningsDetectedSimple": {
+    "message": "$COUNT$ warning$PLURAL$ detected",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "plural": {
+        "content": "$2"
+      }
+    }
   },
   "noTags": {
     "message": "No tags"

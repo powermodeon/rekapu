@@ -95,7 +95,11 @@ export class ApkgParser {
             return filename;
           }
         });
-      })();
+      })().catch((error) => {
+        // Clear cache on failure so subsequent calls can retry
+        this.sqlPromise = null;
+        throw error;
+      });
     }
     return this.sqlPromise;
   }
@@ -435,14 +439,16 @@ export class ApkgParser {
 
       for (const row of notesResult[0].values) {
         const [id, guid, mid, flds, tags, flags, mod] = row;
+        const fldsStr = (flds as string | null) ?? '';
+        const tagsStr = (tags as string | null) ?? '';
         result.notes.push({
           id: String(id),
           guid: String(guid),
           modelId: String(mid),
-          fields: (flds as string).split('\x1f'),
-          tags: (tags as string).trim().split(/\s+/).filter(t => t),
-          flags: flags as number,
-          modified: (mod as number) * 1000
+          fields: fldsStr.split('\x1f'),
+          tags: tagsStr.trim() ? tagsStr.trim().split(/\s+/).filter(t => t) : [],
+          flags: (flags as number | null) ?? 0,
+          modified: typeof mod === 'number' ? mod * 1000 : 0
         });
       }
     } catch (error) {

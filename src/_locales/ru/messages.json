@@ -1118,7 +1118,46 @@
     "message": "Импорт из Anki"
   },
   "selectAnkiFile": {
-    "message": "Выберите .txt файл Anki"
+    "message": "Выберите файл Anki (.apkg или .txt)"
+  },
+  "ankiSupportedFormats": {
+    "message": "Поддерживаемые форматы"
+  },
+  "ankiFormatApkg": {
+    "message": ".apkg (рекомендуется) — Родной формат Anki с изображениями, аудио и форматированием"
+  },
+  "ankiFormatTxt": {
+    "message": ".txt — Текстовый экспорт (Файл → Экспорт → Заметки в текстовом формате)"
+  },
+  "ankiStatsInfo": {
+    "message": "$CARDS$ карточек$MEDIA$",
+    "placeholders": {
+      "cards": {
+        "content": "$1"
+      },
+      "media": {
+        "content": "$2"
+      }
+    }
+  },
+  "ankiMediaFiles": {
+    "message": ", $COUNT$ медиафайлов",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "xWarningsDetectedSimple": {
+    "message": "$COUNT$ предупреждени$PLURAL$ обнаружено",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "plural": {
+        "content": "$2"
+      }
+    }
   },
   "noTags": {
     "message": "Без тегов"
