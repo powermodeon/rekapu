@@ -302,7 +302,10 @@ export const INDEXEDDB_SCHEMA: IndexedDBSchema = {
     // =================== MEDIA FILES ===================
     /**
      * Media files from Anki .apkg imports (images, audio, video)
-     * Stored as Blobs with deduplication via content hash
+     * Stored as Blobs with content hash for lookup.
+     * Note: Deduplication is implemented by MediaStorageManager at the application
+     * level - it checks for existing hash before inserting via findByHash().
+     * The hash index is non-unique to allow the lookup without DB constraint errors.
      */
     media: {
       keyPath: 'id',
@@ -576,6 +579,17 @@ export interface AudioCacheRecord {
   lastAccessedAt: number;        // Timestamp of last access
   accessCount: number;           // Number of times accessed
   sizeBytes: number;             // Size of audio data in bytes
+}
+
+// Media Store Record (for Anki .apkg imports)
+export interface MediaRecord {
+  id: string;                    // Unique identifier (e.g., 'media_<timestamp>_<random>')
+  hash: string;                  // SHA-256 hash of file content for deduplication
+  originalName: string;          // Original filename from Anki package
+  createdAt: number;             // Timestamp when stored
+  mimeType: string;              // MIME type (e.g., 'image/jpeg', 'audio/mpeg')
+  data: ArrayBuffer;             // Binary file content
+  sizeBytes?: number;            // Optional: size of data in bytes
 }
 
 /**

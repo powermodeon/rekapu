@@ -32,15 +32,6 @@ const mockDOMPurify = {
   }
 };
 
-// Mock the dynamic import of dompurify
-const originalImport = global.import;
-const mockImport = async (module) => {
-  if (module.includes('dompurify')) {
-    return { default: mockDOMPurify };
-  }
-  return originalImport?.(module);
-};
-
 // Import real modules (they will use our mocked DOMPurify)
 const { AnkiToRekapuConverter } = require('../src/utils/ankiToRekapuConverter');
 const { ApkgParser } = require('../src/utils/apkgParser');

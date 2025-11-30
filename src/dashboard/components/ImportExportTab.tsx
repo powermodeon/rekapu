@@ -401,7 +401,7 @@ export const ImportExportTab: React.FC = () => {
           if (result.warnings.length > 0) {
             toast({
               title: t('importWarnings'),
-              description: `${result.warnings.length} warning(s) detected`,
+              description: t('xWarningsDetectedSimple', [String(result.warnings.length), result.warnings.length !== 1 ? 's' : '']),
               status: 'warning',
               duration: 5000,
             });
@@ -694,12 +694,12 @@ export const ImportExportTab: React.FC = () => {
               <AlertIcon color="#8AB4F8" />
               <Box flex="1">
                 <AlertTitle color="#e8eaed" fontSize="sm" mb={1}>
-                  Supported Formats
+                  {t('ankiSupportedFormats')}
                 </AlertTitle>
                 <AlertDescription color="#9aa0a6" fontSize="sm">
-                  <strong>.apkg</strong> (recommended) — Native Anki format with images, audio, and formatting
+                  {t('ankiFormatApkg')}
                   <br />
-                  <strong>.txt</strong> — Plain text export (File → Export → Notes in Plain Text)
+                  {t('ankiFormatTxt')}
                 </AlertDescription>
               </Box>
             </Alert>
@@ -721,7 +721,10 @@ export const ImportExportTab: React.FC = () => {
                 <Text color="#9aa0a6" fontSize="sm" mt={2}>
                   {t('selectedFile', [ankiFile.name, (ankiFile.size / 1024).toFixed(1)])}
                   {ankiStats && (
-                    <> — {ankiStats.totalCards} cards{ankiStats.mediaFiles ? `, ${ankiStats.mediaFiles} media files` : ''}</>
+                    <> — {t('ankiStatsInfo', [
+                      String(ankiStats.totalCards),
+                      ankiStats.mediaFiles ? t('ankiMediaFiles', [String(ankiStats.mediaFiles)]) : ''
+                    ])}</>
                   )}
                 </Text>
               )}

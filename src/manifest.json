@@ -41,7 +41,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["popup.html", "blocked.html", "blocked.js", "dashboard.html", "dashboard.js", "vendor/marked.js", "styles/markdown.css", "sql-wasm.wasm", "*.js"],
+      "resources": ["blocked.html", "blocked.js", "styles/markdown.css", "vendor/marked.js", "icons/ghost.png"],
       "matches": ["<all_urls>"]
     }
   ]

@@ -30,17 +30,9 @@ export class MediaStorageManager {
   private static async getDb(): Promise<IDBDatabase> {
     if (!this.dbPromise) {
       this.dbPromise = new Promise((resolve, reject) => {
-        const request = indexedDB.open(this.DB_NAME);
-        
-        request.onupgradeneeded = (event) => {
-          const db = (event.target as IDBOpenDBRequest).result;
-          if (!db.objectStoreNames.contains(this.STORE_NAME)) {
-            const store = db.createObjectStore(this.STORE_NAME, { keyPath: 'id' });
-            store.createIndex('hash', 'hash', { unique: false });
-            store.createIndex('originalName', 'originalName', { unique: false });
-            store.createIndex('createdAt', 'createdAt', { unique: false });
-          }
-        };
+        // Use schema version to ensure we open the correct DB version.
+        // Store creation is handled by IndexedDBManager during upgrades.
+        const request = indexedDB.open(this.DB_NAME, INDEXEDDB_SCHEMA.version);
         
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
@@ -133,25 +125,11 @@ export class MediaStorageManager {
     });
   }
 
-  static async getMediaUrl(id: string): Promise<string | null> {
-    const db = await this.getDb();
-    
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(this.STORE_NAME, 'readonly');
-      const request = tx.objectStore(this.STORE_NAME).get(id);
-      
-      request.onsuccess = () => {
-        const media = request.result as StoredMedia | undefined;
-        if (media) {
-          resolve(URL.createObjectURL(media.data));
-        } else {
-          resolve(null);
-        }
-      };
-      request.onerror = () => reject(request.error);
-    });
-  }
-
+  /**
+   * Retrieve media by ID. Returns the full StoredMedia record including the blob.
+   * Callers should use the returned `data` blob directly or create their own
+   * blob URL with URL.createObjectURL() and remember to revoke it when done.
+   */
   static async getMediaById(id: string): Promise<StoredMedia | null> {
     const db = await this.getDb();
     
@@ -232,7 +210,9 @@ export class MediaStorageManager {
       request.onsuccess = () => {
         const media = request.result as StoredMedia[];
         for (const m of media) {
-          if (!usedMediaIds.has(m.id)) {
+          const refCount = m.refCount ?? 0;
+          // Only delete if not in use AND has no remaining references
+          if (!usedMediaIds.has(m.id) && refCount <= 0) {
             store.delete(m.id);
             deletedCount++;
           }

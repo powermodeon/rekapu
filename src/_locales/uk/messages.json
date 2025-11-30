@@ -1118,7 +1118,46 @@
     "message": "Імпорт з Anki"
   },
   "selectAnkiFile": {
-    "message": "Оберіть .txt файл Anki"
+    "message": "Оберіть файл Anki (.apkg або .txt)"
+  },
+  "ankiSupportedFormats": {
+    "message": "Підтримувані формати"
+  },
+  "ankiFormatApkg": {
+    "message": ".apkg (рекомендовано) — Рідний формат Anki з зображеннями, аудіо та форматуванням"
+  },
+  "ankiFormatTxt": {
+    "message": ".txt — Текстовий експорт (Файл → Експорт → Нотатки у текстовому форматі)"
+  },
+  "ankiStatsInfo": {
+    "message": "$CARDS$ карток$MEDIA$",
+    "placeholders": {
+      "cards": {
+        "content": "$1"
+      },
+      "media": {
+        "content": "$2"
+      }
+    }
+  },
+  "ankiMediaFiles": {
+    "message": ", $COUNT$ медіафайлів",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "xWarningsDetectedSimple": {
+    "message": "$COUNT$ попереджен$PLURAL$ виявлено",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "plural": {
+        "content": "$2"
+      }
+    }
   },
   "noTags": {
     "message": "Без тегів"

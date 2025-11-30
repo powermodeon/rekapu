@@ -196,7 +196,7 @@ export class ApkgImporter {
       const JSZip = (await import('jszip')).default;
       const zip = await JSZip.loadAsync(file);
       
-      if (!zip.file('collection.anki2') && !zip.file('collection.anki21')) {
+      if (!zip.file('collection.anki2') && !zip.file('collection.anki21') && !zip.file('collection.anki21b')) {
         return { valid: false, error: 'Invalid .apkg file: no collection database found' };
       }
 

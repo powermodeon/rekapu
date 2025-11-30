@@ -43,6 +43,7 @@ export const LiveMarkdownEditor: React.FC<LiveMarkdownEditorProps> = ({
   const [viewMode, setViewMode] = useState<ViewMode>('split');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+  const blobUrlsRef = useRef<string[]>([]);
   
   const renderedContent = useMemo(() => {
     if (!value) return '';
@@ -78,13 +79,19 @@ export const LiveMarkdownEditor: React.FC<LiveMarkdownEditorProps> = ({
   useEffect(() => {
     if (!previewRef.current) return;
     
-    const blobUrls: string[] = [];
+    let aborted = false;
+    
+    // Revoke previous blob URLs before creating new ones
+    blobUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+    blobUrlsRef.current = [];
     
     const resolveMediaUrls = async () => {
       const mediaElements = previewRef.current?.querySelectorAll('[data-media-id]');
       if (!mediaElements || mediaElements.length === 0) return;
       
       for (const element of mediaElements) {
+        if (aborted) return;
+        
         const mediaId = element.getAttribute('data-media-id');
         if (!mediaId) continue;
         
@@ -94,12 +101,13 @@ export const LiveMarkdownEditor: React.FC<LiveMarkdownEditorProps> = ({
             mediaId: mediaId
           });
           
+          if (aborted) return;
+          
           if (response && response.success && response.data) {
-            // Convert array back to Uint8Array and create blob
             const uint8Array = new Uint8Array(response.data);
             const blob = new Blob([uint8Array], { type: response.mimeType || 'application/octet-stream' });
             const blobUrl = URL.createObjectURL(blob);
-            blobUrls.push(blobUrl);
+            blobUrlsRef.current.push(blobUrl);
             
             if (element.tagName === 'IMG') {
               (element as HTMLImageElement).src = blobUrl;
@@ -108,17 +116,18 @@ export const LiveMarkdownEditor: React.FC<LiveMarkdownEditorProps> = ({
               (element as HTMLAudioElement | HTMLVideoElement).load();
             }
           }
-        } catch (error) {
-          console.error('Error loading media:', mediaId, error);
+        } catch {
+          // Silently handle errors for media that can't be loaded
         }
       }
     };
     
     resolveMediaUrls();
     
-    // Cleanup blob URLs when content changes
     return () => {
-      blobUrls.forEach(url => URL.revokeObjectURL(url));
+      aborted = true;
+      blobUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+      blobUrlsRef.current = [];
     };
   }, [renderedContent]);
 
