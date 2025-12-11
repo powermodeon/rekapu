@@ -90,8 +90,9 @@ export class ImportTransaction {
 
   /**
    * Create a complete snapshot of current data state
+   * Public method for use by batch import operations
    */
-  private async createSnapshot(): Promise<void> {
+  async createSnapshot(): Promise<void> {
     try {
       const [cardsResult, tagsResult, domainsResult, settingsResult] = await Promise.all([
         StorageManager.getAllCards(),
@@ -129,8 +130,9 @@ export class ImportTransaction {
 
   /**
    * Persist snapshot to storage for later recovery
+   * Public method for use by batch import operations
    */
-  private async persistSnapshot(): Promise<void> {
+  async persistSnapshot(): Promise<void> {
     if (!this.snapshot) {
       return;
     }
@@ -183,8 +185,9 @@ export class ImportTransaction {
 
   /**
    * Validate data integrity after operations
+   * Public method for use by BackupManager
    */
-  private async validateDataIntegrity(): Promise<ValidationResult> {
+  async validateDataIntegrity(): Promise<ValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
 
