@@ -494,23 +494,27 @@ export const ImportExportTab: React.FC<ImportExportTabProps> = ({ onDataImported
         }
         
         // Add additional tags to tags record, reusing existing tag IDs
-        const updatedTags: Record<string, any> = { ...(finalBackupData.data.tags || {}) };
+        const updatedTagsByName: Record<string, any> = {};
+        
+        // First, collect existing tags by name for easy lookup
+        Object.values(finalBackupData.data.tags || {}).forEach((tag: any) => {
+          updatedTagsByName[tag.name] = tag;
+        });
+        
         const now = Date.now();
         
         for (const tagName of ankiAdditionalTags) {
           // Check if tag already exists in backup data
-          const existingInBackup = Object.values(updatedTags).find((t: any) => t.name === tagName);
-          
-          if (!existingInBackup) {
+          if (!updatedTagsByName[tagName]) {
             // Check if tag exists in database
             const existingInDb = existingTagsByName.get(tagName);
             
             if (existingInDb) {
               // Reuse existing tag from database
-              updatedTags[tagName] = existingInDb;
+              updatedTagsByName[tagName] = existingInDb;
             } else {
               // Create new tag
-              updatedTags[tagName] = {
+              updatedTagsByName[tagName] = {
                 id: `tag_${now}_${Math.random().toString(36).substr(2, 9)}`,
                 name: tagName,
                 color: `hsl(${Math.abs(tagName.split('').reduce((a, c) => c.charCodeAt(0) + ((a << 5) - a), 0) % 360)}, 70%, 60%)`,
@@ -520,12 +524,18 @@ export const ImportExportTab: React.FC<ImportExportTabProps> = ({ onDataImported
           }
         }
         
+        // Convert from name-keyed to id-keyed (as expected by backup system)
+        const tagsById: Record<string, any> = {};
+        Object.entries(updatedTagsByName).forEach(([_, tag]) => {
+          tagsById[tag.id] = tag;
+        });
+        
         finalBackupData = {
           ...finalBackupData,
           data: {
             ...finalBackupData.data,
             cards: updatedCards,
-            tags: updatedTags
+            tags: tagsById
           }
         };
       }
