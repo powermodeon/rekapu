@@ -6,14 +6,14 @@
 import { StorageManager } from './StorageManager';
 import { indexedDBManager } from './IndexedDBManager';
 import { SnapshotRecord } from './IndexedDBSchema';
-import { Card, Tag, DomainSettings } from '../types/index';
-import { GlobalSettings, ImportReport } from '../types/storage';
+import { Card, DomainSettings } from '../types/index';
+import { GlobalSettings, ImportReport, TagWithOptionalFields } from '../types/storage';
 
 export interface DataSnapshot {
   id: string;
   timestamp: number;
   cards: Record<string, Card>;
-  tags: Record<string, Tag>;
+  tags: Record<string, TagWithOptionalFields>;
   domains: Record<string, DomainSettings>;
   globalSettings: GlobalSettings;
   statisticsData?: any; // Will include statistics when needed
@@ -328,15 +328,7 @@ export class ImportTransaction {
     }
 
     // Restore tags using batch operation
-    // Preserve all fields including optional description and icon
-    const tags = Object.values(snapshot.tags).map(tag => ({
-      id: tag.id,
-      name: tag.name,
-      color: tag.color,
-      created: tag.created,
-      ...(tag.description !== undefined && { description: tag.description }),
-      ...(tag.icon !== undefined && { icon: tag.icon })
-    }));
+    const tags = Object.values(snapshot.tags);
     if (tags.length > 0) {
       const tagsResult = await indexedDBManager.setTagsBatch(tags);
       if (!tagsResult.success) {

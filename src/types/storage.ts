@@ -150,13 +150,18 @@ export interface StatisticsData {
   cardResponses: Array<any>;
 }
 
+export interface TagWithOptionalFields extends Tag {
+  description?: string;
+  icon?: string;
+}
+
 export interface BackupData {
   version: string;
   timestamp: number;
   scope: BackupScope;
   data: {
     cards?: Record<string, Card>;
-    tags?: Record<string, Tag>;
+    tags?: Record<string, TagWithOptionalFields>;
     activeTags?: string[];
     domains?: Record<string, DomainSettings>;
     globalSettings?: GlobalSettings;
