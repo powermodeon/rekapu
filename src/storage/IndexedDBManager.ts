@@ -1582,6 +1582,50 @@ export class IndexedDBManager {
   }
 
   /**
+   * Batch delete cards by IDs in a single transaction (for snapshot restoration)
+   */
+  async deleteCardsBatch(cardIds: string[]): Promise<IndexedDBResult<number>> {
+    if (cardIds.length === 0) {
+      return { success: true, data: 0 };
+    }
+
+    return this.executeTransaction(
+      { stores: [STORE_NAMES.CARDS], mode: 'readwrite' },
+      async (stores) => {
+        const store = stores[STORE_NAMES.CARDS];
+        let count = 0;
+        for (const cardId of cardIds) {
+          store.delete(cardId);
+          count++;
+        }
+        return count;
+      }
+    );
+  }
+
+  /**
+   * Batch delete tags by IDs in a single transaction (for snapshot restoration)
+   */
+  async deleteTagsBatch(tagIds: string[]): Promise<IndexedDBResult<number>> {
+    if (tagIds.length === 0) {
+      return { success: true, data: 0 };
+    }
+
+    return this.executeTransaction(
+      { stores: [STORE_NAMES.TAGS], mode: 'readwrite' },
+      async (stores) => {
+        const store = stores[STORE_NAMES.TAGS];
+        let count = 0;
+        for (const tagId of tagIds) {
+          store.delete(tagId);
+          count++;
+        }
+        return count;
+      }
+    );
+  }
+
+  /**
    * Force database reinitialization to handle schema upgrades
    */
   async reinitialize(): Promise<IndexedDBResult<void>> {

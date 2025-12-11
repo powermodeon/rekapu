@@ -346,7 +346,7 @@ export const CardManagerApp: React.FC = () => {
                         </VStack>
                       </Center>
                     }>
-                      <ImportExportTab />
+                      <ImportExportTab onDataImported={() => setRefreshTrigger(prev => prev + 1)} />
                     </Suspense>
                   </TabPanel>
                   

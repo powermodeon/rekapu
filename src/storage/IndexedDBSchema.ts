@@ -38,10 +38,11 @@ export interface IndexedDBSchema {
  * Version 8.0 - Fixed invalid compound index with multiEntry on cards store
  * Version 9.0 - Renamed 'questions' to 'cards' throughout (breaking change for terminology consistency)
  * Version 10.0 - Removed broken cardAndTimeLegacy index, fixed migration record field names
+ * Version 11.0 - Added media store for .apkg import support (images, audio, video from Anki)
  */
 export const INDEXEDDB_SCHEMA: IndexedDBSchema = {
   name: 'RekapuDB',
-  version: 10,
+  version: 11,
   
   stores: {
     
@@ -582,13 +583,16 @@ export interface AudioCacheRecord {
 }
 
 // Media Store Record (for Anki .apkg imports)
+// NOTE: This represents the schema definition. At runtime, MediaStorageManager
+// uses the StoredMedia interface which stores data as Blob (not ArrayBuffer).
+// IndexedDB handles both types natively, but we use Blob for better API compatibility.
 export interface MediaRecord {
   id: string;                    // Unique identifier (e.g., 'media_<timestamp>_<random>')
   hash: string;                  // SHA-256 hash of file content for deduplication
   originalName: string;          // Original filename from Anki package
   createdAt: number;             // Timestamp when stored
   mimeType: string;              // MIME type (e.g., 'image/jpeg', 'audio/mpeg')
-  data: ArrayBuffer;             // Binary file content
+  data: Blob;                    // Binary file content (stored as Blob, not ArrayBuffer)
   sizeBytes?: number;            // Optional: size of data in bytes
 }
 

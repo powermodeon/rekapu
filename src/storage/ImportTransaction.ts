@@ -170,10 +170,10 @@ export class ImportTransaction {
     }
 
     try {
-      // Clear all current data first
-      await this.clearCurrentData();
+      // Delete only items that don't exist in snapshot (smart diff)
+      await this.deleteItemsNotInSnapshot(this.snapshot);
 
-      // Restore from snapshot
+      // Restore/update items from snapshot
       await this.restoreFromSnapshot(this.snapshot);
 
     } catch (error) {
@@ -249,55 +249,96 @@ export class ImportTransaction {
   }
 
   /**
-   * Clear all current data (for rollback)
+   * Delete items that exist in current state but not in snapshot (smart diff-based deletion)
    */
-  private async clearCurrentData(): Promise<void> {
-    // Clear cards
-    const cardsResult = await StorageManager.getAllCards();
+  private async deleteItemsNotInSnapshot(snapshot: DataSnapshot): Promise<void> {
+    // Get current state
+    const [cardsResult, tagsResult, domainsResult] = await Promise.all([
+      StorageManager.getAllCards(),
+      StorageManager.getAllTags(),
+      StorageManager.getAllDomains()
+    ]);
+
+    // Find cards to delete (exist now but not in snapshot)
+    const cardsToDelete: string[] = [];
     if (cardsResult.success && cardsResult.data) {
       for (const cardId of Object.keys(cardsResult.data)) {
-        await StorageManager.removeCard(cardId);
+        if (!snapshot.cards[cardId]) {
+          cardsToDelete.push(cardId);
+        }
       }
     }
 
-    // Clear tags
-    const tagsResult = await StorageManager.getAllTags();
+    // Find tags to delete (exist now but not in snapshot)
+    const tagsToDelete: string[] = [];
     if (tagsResult.success && tagsResult.data) {
       for (const tagId of Object.keys(tagsResult.data)) {
-        await StorageManager.removeTag(tagId);
+        if (!snapshot.tags[tagId]) {
+          tagsToDelete.push(tagId);
+        }
       }
     }
 
-    // Clear domains
-    const domainsResult = await StorageManager.getAllDomains();
+    // Find domains to delete (exist now but not in snapshot)
+    const domainsToDelete: string[] = [];
     if (domainsResult.success && domainsResult.data) {
       for (const domain of Object.keys(domainsResult.data)) {
-        await StorageManager.removeDomain(domain);
+        if (!snapshot.domains[domain]) {
+          domainsToDelete.push(domain);
+        }
       }
+    }
+
+    // Batch delete cards using a single transaction
+    if (cardsToDelete.length > 0) {
+      const deleteResult = await indexedDBManager.deleteCardsBatch(cardsToDelete);
+      if (!deleteResult.success) {
+        throw new Error(`Failed to delete cards: ${deleteResult.error}`);
+      }
+    }
+
+    // Batch delete tags using a single transaction
+    if (tagsToDelete.length > 0) {
+      const deleteResult = await indexedDBManager.deleteTagsBatch(tagsToDelete);
+      if (!deleteResult.success) {
+        throw new Error(`Failed to delete tags: ${deleteResult.error}`);
+      }
+    }
+
+    // Delete domains (no batch operation, but typically few domains)
+    for (const domain of domainsToDelete) {
+      await StorageManager.removeDomain(domain);
     }
   }
 
   /**
-   * Restore data from snapshot
+   * Restore data from snapshot - uses batch operations for performance
    */
   private async restoreFromSnapshot(snapshot: DataSnapshot): Promise<void> {
-    // Restore cards
-    for (const [cardId, card] of Object.entries(snapshot.cards)) {
-      const result = await indexedDBManager.setCard(card);
-      if (!result.success) {
-        throw new Error(`Failed to restore card ${cardId}: ${result.error}`);
+    // Restore cards using batch operation (much faster than one-by-one)
+    const cards = Object.values(snapshot.cards);
+    if (cards.length > 0) {
+      const cardsResult = await indexedDBManager.setCardsBatch(cards);
+      if (!cardsResult.success) {
+        throw new Error(`Failed to restore cards: ${cardsResult.error}`);
       }
     }
 
-    // Restore tags
-    for (const [tagId, tag] of Object.entries(snapshot.tags)) {
-      const result = await indexedDBManager.setTag(tag);
-      if (!result.success) {
-        throw new Error(`Failed to restore tag ${tagId}: ${result.error}`);
+    // Restore tags using batch operation
+    const tags = Object.values(snapshot.tags).map(tag => ({
+      id: tag.id,
+      name: tag.name,
+      color: tag.color,
+      created: tag.created
+    }));
+    if (tags.length > 0) {
+      const tagsResult = await indexedDBManager.setTagsBatch(tags);
+      if (!tagsResult.success) {
+        throw new Error(`Failed to restore tags: ${tagsResult.error}`);
       }
     }
 
-    // Restore domains
+    // Restore domains (no batch operation available, but typically fewer domains)
     for (const [domain, domainSettings] of Object.entries(snapshot.domains)) {
       const result = await StorageManager.setDomain(domain, domainSettings);
       if (!result.success) {
@@ -394,8 +435,8 @@ export class ImportTransaction {
       await transaction.createSnapshot();
       await transaction.persistSnapshot();
       
-      // Perform restore
-      await transaction.clearCurrentData();
+      // Perform restore (delete only new items, then restore snapshot items)
+      await transaction.deleteItemsNotInSnapshot(snapshot);
       await transaction.restoreFromSnapshot(snapshot);
 
     } catch (error) {
