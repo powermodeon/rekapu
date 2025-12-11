@@ -433,11 +433,14 @@ export class BackupManager {
 
       // Import tags first (batch)
       if (backupData.data.tags) {
+        // Preserve all fields including optional description and icon
         const tagRecords = Object.values(backupData.data.tags).map(tag => ({
           id: tag.id,
           name: tag.name,
           color: tag.color,
-          created: tag.created
+          created: tag.created,
+          ...(tag.description !== undefined && { description: tag.description }),
+          ...(tag.icon !== undefined && { icon: tag.icon })
         }));
         
         const tagsResult = await indexedDBManager.setTagsBatch(tagRecords);

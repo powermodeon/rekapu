@@ -138,9 +138,10 @@ export class ApkgImporter {
       cards[card.id] = card;
     }
 
+    // Convert tags from Map to Record keyed by tag ID (not name)
     const tags: Record<string, any> = {};
     for (const [name, tag] of conversionResult.tags) {
-      tags[name] = tag;
+      tags[tag.id] = tag;  // Key by ID, not name
     }
 
     return {
