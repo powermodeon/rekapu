@@ -404,8 +404,9 @@ export class BackupManager {
   }
 
   /**
-   * Fast batch import for new cards with snapshot creation
+   * Fast batch import for new cards with snapshot and validation
    * Use when importing large datasets where all cards are new
+   * Uses transaction.execute() for automatic snapshot management and rollback
    */
   static async importCardsBatch(
     backupData: BackupData
@@ -426,47 +427,50 @@ export class BackupManager {
     };
 
     try {
-      // Create snapshot before import for rollback capability
+      // Use transaction.execute() for automatic snapshot management and rollback
       const transaction = new ImportTransaction();
-      await (transaction as any).createSnapshot();
-      await (transaction as any).persistSnapshot();
-
-      // Import tags first (batch)
-      if (backupData.data.tags) {
-        // Preserve all fields including optional description and icon
-        const tagRecords = Object.values(backupData.data.tags).map(tag => ({
-          id: tag.id,
-          name: tag.name,
-          color: tag.color,
-          created: tag.created,
-          ...(tag.description !== undefined && { description: tag.description }),
-          ...(tag.icon !== undefined && { icon: tag.icon })
-        }));
-        
-        const tagsResult = await indexedDBManager.setTagsBatch(tagRecords);
-        if (tagsResult.success) {
-          report.summary.tagsImported = tagsResult.data || 0;
-        } else {
-          report.errors.push(`Failed to import tags: ${tagsResult.error}`);
+      
+      const { result: importResult, snapshotId } = await transaction.execute(async () => {
+        // Import tags first (batch)
+        if (backupData.data.tags) {
+          // Preserve all fields including optional description and icon
+          const tagRecords = Object.values(backupData.data.tags).map(tag => ({
+            id: tag.id,
+            name: tag.name,
+            color: tag.color,
+            created: tag.created,
+            ...(tag.description !== undefined && { description: tag.description }),
+            ...(tag.icon !== undefined && { icon: tag.icon })
+          }));
+          
+          const tagsResult = await indexedDBManager.setTagsBatch(tagRecords);
+          if (tagsResult.success) {
+            report.summary.tagsImported = tagsResult.data || 0;
+          } else {
+            throw new Error(`Failed to import tags: ${tagsResult.error}`);
+          }
         }
-      }
 
-      // Import cards (batch)
-      if (backupData.data.cards) {
-        const cardRecords = Object.values(backupData.data.cards);
-        const cardsResult = await indexedDBManager.setCardsBatch(cardRecords);
-        if (cardsResult.success) {
-          report.summary.cardsImported = cardsResult.data || 0;
-        } else {
-          report.errors.push(`Failed to import cards: ${cardsResult.error}`);
+        // Import cards (batch)
+        if (backupData.data.cards) {
+          const cardRecords = Object.values(backupData.data.cards);
+          const cardsResult = await indexedDBManager.setCardsBatch(cardRecords);
+          if (cardsResult.success) {
+            report.summary.cardsImported = cardsResult.data || 0;
+          } else {
+            throw new Error(`Failed to import cards: ${cardsResult.error}`);
+          }
         }
-      }
 
-      report.success = report.errors.length === 0;
+        return { tagsImported: report.summary.tagsImported, cardsImported: report.summary.cardsImported };
+      });
+
+      report.success = true;
       return report;
 
     } catch (error) {
       report.errors.push(`Batch import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      report.success = false;
       return report;
     }
   }
@@ -970,7 +974,6 @@ export class BackupManager {
    */
   static async validateDataIntegrity(): Promise<ValidationResult> {
     const transaction = new ImportTransaction();
-    // Use the private validation method via a transaction instance
-    return await (transaction as any).validateDataIntegrity();
+    return await transaction.validateDataIntegrity();
   }
 } 
