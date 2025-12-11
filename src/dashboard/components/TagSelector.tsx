@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import {
   Box,
   VStack,
@@ -31,7 +31,11 @@ interface TagSelectorProps {
   refreshTrigger?: number;
 }
 
-export const TagSelector: React.FC<TagSelectorProps> = ({
+export interface TagSelectorRef {
+  commitPendingInput: () => void;
+}
+
+export const TagSelector = forwardRef<TagSelectorRef, TagSelectorProps>(({
   selectedTags,
   onChange,
   label,
@@ -40,7 +44,7 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
   isDisabled = false,
   placeholder,
   refreshTrigger = 0,
-}) => {
+}, ref) => {
   const [inputValue, setInputValue] = useState('');
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
@@ -48,6 +52,19 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+
+  // Commit any pending input (called before form submission)
+  const commitPendingInput = () => {
+    if (inputValue.trim()) {
+      addTags(inputValue);
+      setInputValue('');
+    }
+  };
+
+  // Expose commitPendingInput to parent via ref
+  useImperativeHandle(ref, () => ({
+    commitPendingInput
+  }), [inputValue, selectedTags]);
 
   // Load existing tags on component mount
   useEffect(() => {
@@ -194,14 +211,12 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
   const handleBlur = (e: React.FocusEvent) => {
     // Only hide suggestions if focus is not moving to the suggestions container
     if (!suggestionsRef.current?.contains(e.relatedTarget as Node)) {
-      setTimeout(() => {
-        setShowSuggestions(false);
-        setHighlightedIndex(-1);
-        if (inputValue.trim()) {
-          addTags(inputValue);
-          setInputValue('');
-        }
-      }, 100);
+      setShowSuggestions(false);
+      setHighlightedIndex(-1);
+      if (inputValue.trim()) {
+        addTags(inputValue);
+        setInputValue('');
+      }
     }
   };
 
@@ -356,4 +371,4 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
       </HStack>
     </FormControl>
   );
-}; 
+}); 

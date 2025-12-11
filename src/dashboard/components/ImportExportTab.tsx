@@ -45,12 +45,13 @@ import {
 } from '@chakra-ui/react';
 import { DownloadIcon, AttachmentIcon, CheckIcon, WarningIcon, CloseIcon } from '@chakra-ui/icons';
 import { BackupAPI, ProgressCallback } from '../../storage/BackupAPI';
+import { StorageAPI } from '../../storage/StorageAPI';
 import { BackupScope, ConflictStrategy, ImportReport } from '../../types/storage';
 import { DataConflict, ConflictResolver } from '../../storage/ConflictResolver';
 import { DataSnapshot, ValidationResult } from '../../storage/ImportTransaction';
 import { AnkiImporter } from '../../utils/ankiImporter';
 import { ApkgImporter } from '../../utils/apkgImporter';
-import { TagSelector } from './TagSelector';
+import { TagSelector, TagSelectorRef } from './TagSelector';
 import { t } from '../../utils/i18n';
 
 interface OperationProgress {
@@ -67,7 +68,11 @@ interface ConflictResolution {
   newId?: string;
 }
 
-export const ImportExportTab: React.FC = () => {
+interface ImportExportTabProps {
+  onDataImported?: () => void;
+}
+
+export const ImportExportTab: React.FC<ImportExportTabProps> = ({ onDataImported }) => {
   const [progress, setProgress] = useState<OperationProgress>({
     isActive: false,
     type: 'export',
@@ -106,6 +111,7 @@ export const ImportExportTab: React.FC = () => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const ankiFileInputRef = useRef<HTMLInputElement>(null);
+  const tagSelectorRef = useRef<TagSelectorRef>(null);
   const toast = useToast();
 
   const progressCallback: ProgressCallback = (progressValue, status) => {
@@ -242,6 +248,9 @@ export const ImportExportTab: React.FC = () => {
           duration: 5000,
         });
         openReportModal();
+        
+        // Trigger cards list refresh
+        onDataImported?.();
       } else {
         toast({
           title: t('importFailed'),
@@ -451,6 +460,9 @@ export const ImportExportTab: React.FC = () => {
   const handleAnkiImport = async () => {
     if (!ankiFile || ankiError || !backupData) return;
     
+    // Commit any pending tag input (safety net in case blur hasn't fired yet)
+    tagSelectorRef.current?.commitPendingInput();
+    
     try {
       setProgress({
         isActive: true,
@@ -463,6 +475,16 @@ export const ImportExportTab: React.FC = () => {
       let finalBackupData = backupData;
       
       if (ankiAdditionalTags.length > 0 && finalBackupData?.data?.cards) {
+        // Fetch existing tags from database to reuse their IDs
+        const existingTagsResponse = await StorageAPI.getAllTags();
+        const existingTagsByName = new Map<string, any>();
+        
+        if (existingTagsResponse.success && existingTagsResponse.data) {
+          Object.values(existingTagsResponse.data).forEach((tag: any) => {
+            existingTagsByName.set(tag.name, tag);
+          });
+        }
+        
         // Clone and add tags directly without re-parsing
         const updatedCards: Record<string, any> = {};
         for (const [cardId, card] of Object.entries(finalBackupData.data.cards as Record<string, any>)) {
@@ -471,17 +493,30 @@ export const ImportExportTab: React.FC = () => {
           updatedCards[cardId] = { ...card, tags: newTags };
         }
         
-        // Add additional tags to tags record
+        // Add additional tags to tags record, reusing existing tag IDs
         const updatedTags: Record<string, any> = { ...(finalBackupData.data.tags || {}) };
         const now = Date.now();
+        
         for (const tagName of ankiAdditionalTags) {
-          if (!updatedTags[tagName]) {
-            updatedTags[tagName] = {
-              id: `tag_${now}_${Math.random().toString(36).substr(2, 9)}`,
-              name: tagName,
-              color: `hsl(${Math.abs(tagName.split('').reduce((a, c) => c.charCodeAt(0) + ((a << 5) - a), 0) % 360)}, 70%, 60%)`,
-              created: now
-            };
+          // Check if tag already exists in backup data
+          const existingInBackup = Object.values(updatedTags).find((t: any) => t.name === tagName);
+          
+          if (!existingInBackup) {
+            // Check if tag exists in database
+            const existingInDb = existingTagsByName.get(tagName);
+            
+            if (existingInDb) {
+              // Reuse existing tag from database
+              updatedTags[tagName] = existingInDb;
+            } else {
+              // Create new tag
+              updatedTags[tagName] = {
+                id: `tag_${now}_${Math.random().toString(36).substr(2, 9)}`,
+                name: tagName,
+                color: `hsl(${Math.abs(tagName.split('').reduce((a, c) => c.charCodeAt(0) + ((a << 5) - a), 0) % 360)}, 70%, 60%)`,
+                created: now
+              };
+            }
           }
         }
         
@@ -509,6 +544,9 @@ export const ImportExportTab: React.FC = () => {
           duration: 5000,
         });
         openReportModal();
+        
+        // Trigger cards list refresh
+        onDataImported?.();
         
         // Reset Anki import state
         setAnkiFile(null);
@@ -789,6 +827,7 @@ export const ImportExportTab: React.FC = () => {
                 <FormControl>
                   <FormLabel color="#e8eaed">{t('addTagsToImported')}</FormLabel>
                   <TagSelector
+                    ref={tagSelectorRef}
                     selectedTags={ankiAdditionalTags}
                     onChange={setAnkiAdditionalTags}
                     label=""

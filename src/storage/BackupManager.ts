@@ -404,7 +404,7 @@ export class BackupManager {
   }
 
   /**
-   * Fast batch import for new cards (no conflict resolution, no snapshots)
+   * Fast batch import for new cards with snapshot creation
    * Use when importing large datasets where all cards are new
    */
   static async importCardsBatch(
@@ -426,6 +426,11 @@ export class BackupManager {
     };
 
     try {
+      // Create snapshot before import for rollback capability
+      const transaction = new ImportTransaction();
+      await (transaction as any).createSnapshot();
+      await (transaction as any).persistSnapshot();
+
       // Import tags first (batch)
       if (backupData.data.tags) {
         const tagRecords = Object.values(backupData.data.tags).map(tag => ({
