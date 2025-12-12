@@ -44,7 +44,10 @@ const { headings } = Astro.props as Props;
       (entries) => {
         entries.forEach((entry) => {
           const id = entry.target.id;
-          const tocLink = document.querySelector(`.toc-link[data-heading="${id}"]`);
+          const escapedId = typeof CSS !== 'undefined' && CSS.escape 
+            ? CSS.escape(id) 
+            : id.replace(/([\\\"'\[\]#.:>+~*^$|=])/g, '\\$1');
+          const tocLink = document.querySelector(`.toc-link[data-heading="${escapedId}"]`);
           
           if (entry.isIntersecting) {
             // Remove active class from all links

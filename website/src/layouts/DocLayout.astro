@@ -27,7 +27,7 @@ const tocHeadings = headings?.filter((h: Heading) => h.depth === 2 || h.depth ==
 
 <BaseLayout title={`${frontmatter.title} - Rekapu`} description={frontmatter.description}>
   <div class="max-w-7xl mx-auto px-6 py-12">
-    <div class="flex flex-col lg:flex-row" style="position: relative;">
+    <div class="flex flex-col lg:flex-row gap-16" style="position: relative;">
       <!-- Left Sidebar - Navigation + TOC -->
       <aside class="hidden lg:block doc-sidebar">
         <div class="doc-sidebar-content">
@@ -81,7 +81,6 @@ const tocHeadings = headings?.filter((h: Heading) => h.depth === 2 || h.depth ==
   .doc-content {
     flex: 1;
     min-width: 0;
-    margin-left: 4rem;
   }
 
   /* Responsive images */
@@ -105,11 +104,6 @@ const tocHeadings = headings?.filter((h: Heading) => h.depth === 2 || h.depth ==
     width: 100% !important;
   }
 
-  @media (max-width: 1023px) {
-    .doc-content {
-      margin-left: 0;
-    }
-  }
 
   @media (max-width: 640px) {
     .doc-content :global(.screenshot) {
