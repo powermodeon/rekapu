@@ -145,24 +145,6 @@ After answering a card, the blocked site becomes accessible for a set period (e.
 
 Happy learning! 🚀
 
-<style>
-.screenshot {
-  cursor: pointer;
-  transition: transform 0.2s;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  display: block;
-  margin: 1rem 0;
-}
-.screenshot:hover {
-  transform: scale(1.02);
-}
-.screenshot.fullsize {
-  width: 100% !important;
-  max-width: none;
-}
-</style>
-
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.screenshot').forEach(img => {

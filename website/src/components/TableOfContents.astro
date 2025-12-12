@@ -1,6 +1,15 @@
 ---
-// Extract headings from the content
-const { headings } = Astro.props;
+interface Heading {
+  depth: number;
+  slug: string;
+  text: string;
+}
+
+interface Props {
+  headings: Heading[];
+}
+
+const { headings } = Astro.props as Props;
 ---
 
 <nav class="toc-nav">
@@ -8,7 +17,7 @@ const { headings } = Astro.props;
     On This Page
   </h4>
   <ul class="space-y-2">
-    {headings.map((heading: any) => (
+    {headings.map((heading: Heading) => (
       <li style={`margin-left: ${(heading.depth - 2) * 0.75}rem`}>
         <a
           href={`#${heading.slug}`}
@@ -27,19 +36,8 @@ const { headings } = Astro.props;
   document.addEventListener('DOMContentLoaded', () => {
     const headings = document.querySelectorAll('article h2, article h3');
     
-    // Add IDs to headings if they don't have them
-    headings.forEach((heading) => {
-      if (!heading.id) {
-        const text = heading.textContent || '';
-        const slug = text
-          .toLowerCase()
-          .replace(/[^\w\s-]/g, '')
-          .replace(/\s+/g, '-')
-          .replace(/-+/g, '-')
-          .trim();
-        heading.id = slug;
-      }
-    });
+    // Astro markdown already generates IDs for headings, but if missing, skip
+    // (Astro uses github-slugger internally, so we trust its output)
 
     // Intersection observer for active section highlighting
     const observer = new IntersectionObserver(
