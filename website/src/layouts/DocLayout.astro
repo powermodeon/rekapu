@@ -3,16 +3,18 @@ import BaseLayout from './BaseLayout.astro';
 import TableOfContents from '../components/TableOfContents.astro';
 import { getPageTranslations } from '../i18n/utils';
 
+interface Heading {
+  depth: number;
+  slug: string;
+  text: string;
+}
+
 interface Props {
   frontmatter: {
     title: string;
     description: string;
   };
-  headings: Array<{
-    depth: number;
-    slug: string;
-    text: string;
-  }>;
+  headings?: Heading[];
 }
 
 const { frontmatter, headings = [] } = Astro.props;
@@ -20,7 +22,7 @@ const locale = Astro.currentLocale || 'en';
 const t = await getPageTranslations(locale, 'docs');
 
 // Filter headings to only show h2 and h3
-const tocHeadings = headings?.filter((h: any) => h.depth === 2 || h.depth === 3) || [];
+const tocHeadings = headings?.filter((h: Heading) => h.depth === 2 || h.depth === 3) || [];
 ---
 
 <BaseLayout title={`${frontmatter.title} - Rekapu`} description={frontmatter.description}>
