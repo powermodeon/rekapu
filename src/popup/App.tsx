@@ -392,6 +392,7 @@ const App: React.FC = () => {
           status: 'warning',
           duration: 4000,
         });
+        setDomainsLoading(false);
         return;
       }
 
@@ -403,7 +404,7 @@ const App: React.FC = () => {
           status: 'success',
           duration: 3000,
         });
-        await loadData();
+        await refreshDomainsOnly();
       } else {
         throw new Error(result.error);
       }
@@ -534,7 +535,7 @@ const App: React.FC = () => {
       });
       
       if (result.success) {
-        await loadData(); // Refresh data
+        await refreshDomainsOnly();
         setEditingDomain(null);
         toast({
           title: 'Domain updated',
