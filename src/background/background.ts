@@ -14,6 +14,7 @@ import { TTSService } from '../tts/TTSService';
 import { indexedDBManager } from '../storage/IndexedDBManager';
 import { loadDemoCards } from '../utils/demoCardsLoader';
 import { loadDefaultDomains } from '../utils/defaultDomainsLoader';
+import { isSupportedLanguage, DEFAULT_LANGUAGE } from '../config/constants';
 
 /**
  * Simple cloze renderer for background script (no external dependencies)
@@ -305,6 +306,20 @@ chrome.runtime.onInstalled.addListener(async (details: chrome.runtime.InstalledD
       await updateBlockingRules();
     } else if (domainsResult.error) {
       console.error('❌ Failed to load default domains:', domainsResult.error);
+    }
+    
+    // Open quick-start page on the website
+    try {
+      const userLanguage = chrome.i18n.getUILanguage().toLowerCase().split('-')[0];
+      const langCode = isSupportedLanguage(userLanguage) ? userLanguage : DEFAULT_LANGUAGE;
+      
+      const quickStartUrl = `https://rekapu.com/${langCode}/docs/quick-start`;
+      await chrome.tabs.create({
+        url: quickStartUrl,
+        active: true
+      });
+    } catch (error) {
+      console.error('Failed to open quick-start page:', error);
     }
   }
 });

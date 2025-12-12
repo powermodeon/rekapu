@@ -1,0 +1,11 @@
+{
+  "sidebar": {
+    "gettingStarted": "Початок роботи",
+    "quickStart": "Швидкий старт"
+  },
+  "navigation": {
+    "breadcrumb": "Головна",
+    "editPage": "Редагувати цю сторінку"
+  }
+}
+
