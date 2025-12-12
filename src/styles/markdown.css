@@ -101,6 +101,7 @@
 .markdown-content li {
   margin: 4px 0;
   word-wrap: break-word;
+  text-align: initial;
 }
 
 .markdown-content li p {
