@@ -49,7 +49,7 @@ const tocHeadings = headings?.filter((h: Heading) => h.depth === 2 || h.depth ==
           <!-- Table of Contents -->
           {tocHeadings.length > 0 && (
             <div class="border-t border-[#3c4043] pt-6">
-              <TableOfContents headings={tocHeadings} />
+              <TableOfContents headings={tocHeadings} tocLabel={t.navigation.onThisPage} />
             </div>
           )}
         </div>

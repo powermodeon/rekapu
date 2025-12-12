@@ -7,14 +7,15 @@ interface Heading {
 
 interface Props {
   headings: Heading[];
+  tocLabel?: string;
 }
 
-const { headings } = Astro.props as Props;
+const { headings, tocLabel = 'On This Page' } = Astro.props as Props;
 ---
 
 <nav class="toc-nav">
   <h4 class="text-xs font-medium mb-4 text-dark-text uppercase tracking-wider">
-    On This Page
+    {tocLabel}
   </h4>
   <ul class="space-y-2">
     {headings.map((heading: Heading) => (
@@ -33,7 +34,7 @@ const { headings } = Astro.props as Props;
 
 <script>
   // Add IDs to headings and handle smooth scrolling
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('astro:page-load', () => {
     const headings = document.querySelectorAll('article h2, article h3');
     
     // Astro markdown already generates IDs for headings, but if missing, skip
@@ -73,18 +74,31 @@ const { headings } = Astro.props as Props;
     });
 
     // Smooth scroll to section
+    const clickHandlers = new Map<Element, EventListener>();
     document.querySelectorAll('.toc-link').forEach((link) => {
-      link.addEventListener('click', (e) => {
+      const handler = (e: Event) => {
         e.preventDefault();
-        const targetId = link.getAttribute('href')?.substring(1);
+        const targetId = (link as HTMLAnchorElement).getAttribute('href')?.substring(1);
         const target = document.getElementById(targetId || '');
         if (target) {
           target.scrollIntoView({ behavior: 'smooth', block: 'start' });
           // Update URL without scrolling
           history.pushState(null, '', `#${targetId}`);
         }
-      });
+      };
+      clickHandlers.set(link, handler);
+      link.addEventListener('click', handler);
     });
+
+    // Cleanup on page swap
+    const cleanup = () => {
+      observer.disconnect();
+      clickHandlers.forEach((handler, link) => {
+        link.removeEventListener('click', handler);
+      });
+      document.removeEventListener('astro:before-swap', cleanup);
+    };
+    document.addEventListener('astro:before-swap', cleanup);
   });
 </script>
 
