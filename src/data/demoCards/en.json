@@ -2,64 +2,8 @@
   {
     "id": "demo_en_1",
     "type": "basic",
-    "front": "**What are 3 ways to add new cards?**",
-    "back": "**Three ways to add cards in Rekapu:**\n\n1. **Open the popup** → Click \"Add Card\"\n\n2. **Select text on any page** → Right-click → \"Add selection as card\"\n\n3. **Import Anki decks** from https://ankiweb.net/shared/decks\n   *(text-only support for now, no image or HTML import)*",
-    "tags": ["demo"],
-    "isDraft": false
-  },
-  {
-    "id": "demo_en_2",
-    "type": "basic",
-    "front": "**Does Rekapu support Markdown?**",
-    "back": "**Yes!** Rekapu has full Markdown support.\n\n**Examples:**\n- `**bold**` → **bold**\n- `*italic*` → *italic*\n- `` `code` `` → `code`\n- Links: `[text](url)`\n- Lists, headings, code blocks, and more\n\nMarkdown renders identically in the editor preview and on blocked pages.",
-    "tags": ["demo"],
-    "isDraft": false
-  },
-  {
-    "id": "demo_en_3",
-    "type": "basic",
-    "front": "**Can I study all due cards at once without visiting blocked sites?**",
-    "back": "**Yes!** Rekapu has a dedicated **Study Mode**.\n\n**To access it:**\n- Open Rekapu popup → \"Study Due Cards\" button\n\nIn Study Mode, you can review all due cards in one session. Once you're done, all blocked domains become accessible again.\n\nThis is perfect for focused study sessions!",
-    "tags": ["demo"],
-    "isDraft": false
-  },
-  {
-    "id": "demo_en_4",
-    "type": "basic",
-    "front": "**What websites should I block?**",
-    "back": "**Good candidates for blocking:**\n- Time-wasters and sites you feel guilty about\n- Social media (Twitter, Reddit, YouTube)\n- Online stores (if they're a distraction for you)\n\n**Don't block:**\n- Important work tools (email, Slack, GitHub)\n- Essential services (banking, healthcare)\n- Search engines you need frequently\n\n💡 **Tip:** This extension adds *productive friction*, not frustration. Block sites where learning opportunities make sense, not everywhere.",
-    "tags": ["demo"],
-    "isDraft": false
-  },
-  {
-    "id": "demo_en_5",
-    "type": "basic",
-    "front": "**Does Rekapu have \"fill in the blank\" cards?**",
-    "back": "**Yes!** They're called **Cloze Deletion** cards.\n\nUse the syntax: `{{c1::hidden text}}`\n\n**Example:**\n```\nThe capital of France is {{c1::Paris}}.\n```\n\nYou can choose \"Cloze (Fill-in)\" as the card type during creation.",
-    "tags": ["demo"],
-    "isDraft": false
-  },
-  {
-    "id": "demo_en_6",
-    "type": "basic",
-    "front": "**How do I edit or delete a domain from the block list?**",
-    "back": "**Important:** You can only edit/delete domains when they're **unblocked**.\n\n**Steps:**\n1. Visit the blocked website\n2. Answer a card to unblock it\n3. Open Rekapu popup → Domains tab\n4. Edit or delete the domain while it's unblocked\n\nThis prevents accidental changes to actively blocked sites.",
-    "tags": ["demo"],
-    "isDraft": false
-  },
-  {
-    "id": "demo_en_7",
-    "type": "basic",
-    "front": "**Does Rekapu track my browsing history or sell my data?**",
-    "back": "**No.** All your data stays on your computer in your browser's local storage (IndexedDB).\n\n**Rekapu does NOT:**\n- ❌ Track your browsing history\n- ❌ Collect personal data\n- ❌ Sell or share your information\n- ❌ Require an account or cloud sync\n\nYour browser may send anonymous usage statistics (e.g., active user count) to extension stores—this is standard Chromium behavior and doesn't compromise your privacy.",
-    "tags": ["demo"],
-    "isDraft": false
-  },
-  {
-    "id": "demo_en_8",
-    "type": "basic",
-    "front": "**What is TTS and how do I enable it?**",
-    "back": "**TTS (Text-to-Speech)** reads aloud the content on your cards so you can learn proper pronunciation.\n\n**To enable TTS:**\n1. Get an API key from Google Cloud Console\n2. Open Rekapu → Settings tab\n3. Configure language, voice, and which tags should support TTS\n\nAll audio is cached locally for offline use.",
+    "front": "What is the capital of France?",
+    "back": "Paris",
     "tags": ["demo"],
     "isDraft": false
   }

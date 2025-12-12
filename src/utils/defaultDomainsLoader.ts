@@ -11,19 +11,7 @@ const DEFAULT_DOMAINS_LOADED_KEY = 'defaultDomainsLoaded';
 /**
  * Default domains to add on first installation
  */
-const DEFAULT_DOMAINS: Array<{ domain: string; settings: Omit<DomainSettings, 'domain'> }> = [
-  {
-    domain: 'rekapu.com',
-    settings: {
-      cooldownPeriod: 10, // 10 minutes
-      isActive: true,
-      lastUnblock: 0,
-      subdomainsIncluded: true,
-      created: Date.now(),
-      modified: Date.now(),
-    }
-  }
-];
+const DEFAULT_DOMAINS: Array<{ domain: string; settings: Omit<DomainSettings, 'domain'> }> = [];
 
 /**
  * Check if default domains have already been loaded
