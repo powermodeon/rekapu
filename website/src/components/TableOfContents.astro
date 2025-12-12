@@ -1,0 +1,131 @@
+---
+// Extract headings from the content
+const { headings } = Astro.props;
+---
+
+<nav class="toc-nav">
+  <h4 class="text-xs font-medium mb-4 text-dark-text uppercase tracking-wider">
+    On This Page
+  </h4>
+  <ul class="space-y-2">
+    {headings.map((heading: any) => (
+      <li style={`margin-left: ${(heading.depth - 2) * 0.75}rem`}>
+        <a
+          href={`#${heading.slug}`}
+          class="toc-link text-sm text-dark-text-secondary hover:text-brand-400 transition-colors block"
+          data-heading={heading.slug}
+        >
+          {heading.text}
+        </a>
+      </li>
+    ))}
+  </ul>
+</nav>
+
+<script>
+  // Add IDs to headings and handle smooth scrolling
+  document.addEventListener('DOMContentLoaded', () => {
+    const headings = document.querySelectorAll('article h2, article h3');
+    
+    // Add IDs to headings if they don't have them
+    headings.forEach((heading) => {
+      if (!heading.id) {
+        const text = heading.textContent || '';
+        const slug = text
+          .toLowerCase()
+          .replace(/[^\w\s-]/g, '')
+          .replace(/\s+/g, '-')
+          .replace(/-+/g, '-')
+          .trim();
+        heading.id = slug;
+      }
+    });
+
+    // Intersection observer for active section highlighting
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const id = entry.target.id;
+          const tocLink = document.querySelector(`.toc-link[data-heading="${id}"]`);
+          
+          if (entry.isIntersecting) {
+            // Remove active class from all links
+            document.querySelectorAll('.toc-link').forEach((link) => {
+              link.classList.remove('active');
+            });
+            // Add active class to current link
+            if (tocLink) {
+              tocLink.classList.add('active');
+            }
+          }
+        });
+      },
+      {
+        rootMargin: '-100px 0px -66%',
+        threshold: 0
+      }
+    );
+
+    // Observe all headings
+    headings.forEach((heading) => {
+      observer.observe(heading);
+    });
+
+    // Smooth scroll to section
+    document.querySelectorAll('.toc-link').forEach((link) => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const targetId = link.getAttribute('href')?.substring(1);
+        const target = document.getElementById(targetId || '');
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // Update URL without scrolling
+          history.pushState(null, '', `#${targetId}`);
+        }
+      });
+    });
+  });
+</script>
+
+<style>
+  .toc-nav {
+    max-height: calc(100vh - 20rem);
+    overflow-y: auto;
+  }
+
+  .toc-link {
+    position: relative;
+    padding-left: 0.75rem;
+    border-left: 2px solid transparent;
+    transition: all 0.2s;
+  }
+
+  .toc-link:hover {
+    border-left-color: #8ab4f8;
+  }
+
+  .toc-link.active {
+    color: #8ab4f8;
+    border-left-color: #8ab4f8;
+    font-weight: 500;
+  }
+
+  /* Custom scrollbar for TOC */
+  .toc-nav::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .toc-nav::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .toc-nav::-webkit-scrollbar-thumb {
+    background: #3c4043;
+    border-radius: 2px;
+  }
+
+  .toc-nav::-webkit-scrollbar-thumb:hover {
+    background: #5f6368;
+  }
+</style>
+

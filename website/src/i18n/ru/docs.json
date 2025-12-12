@@ -1,21 +1,11 @@
 {
   "sidebar": {
     "gettingStarted": "Начало работы",
-    "installation": "Установка",
-    "quickStart": "Быстрый старт",
-    "guides": "Руководства",
-    "questionManagement": "Управление вопросами",
-    "markdownGuide": "Руководство по Markdown",
-    "domainBlocking": "Блокировка доменов",
-    "spacedRepetition": "Интервальное повторение",
-    "questionTypes": "Типы вопросов",
-    "advanced": "Продвинутые возможности",
-    "backup": "Резервное копирование и восстановление",
-    "ankiImport": "Импорт из Anki",
-    "storage": "Управление хранилищем",
-    "help": "Помощь",
-    "faq": "Часто задаваемые вопросы",
-    "troubleshooting": "Устранение неполадок"
+    "quickStart": "Быстрый старт"
+  },
+  "navigation": {
+    "breadcrumb": "Главная",
+    "editPage": "Редактировать эту страницу"
   }
 }
 

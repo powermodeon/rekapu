@@ -1,5 +1,6 @@
 ---
 import BaseLayout from './BaseLayout.astro';
+import TableOfContents from '../components/TableOfContents.astro';
 import { getPageTranslations } from '../i18n/utils';
 
 interface Props {
@@ -7,117 +8,128 @@ interface Props {
     title: string;
     description: string;
   };
+  headings: Array<{
+    depth: number;
+    slug: string;
+    text: string;
+  }>;
 }
 
-const { frontmatter } = Astro.props;
+const { frontmatter, headings = [] } = Astro.props;
 const locale = Astro.currentLocale || 'en';
 const t = await getPageTranslations(locale, 'docs');
+
+// Filter headings to only show h2 and h3
+const tocHeadings = headings?.filter((h: any) => h.depth === 2 || h.depth === 3) || [];
 ---
 
 <BaseLayout title={`${frontmatter.title} - Rekapu`} description={frontmatter.description}>
   <div class="max-w-7xl mx-auto px-6 py-12">
-    <div class="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-16">
-      <!-- Sidebar -->
-      <aside class="hidden lg:block">
-        <nav class="sticky top-24 space-y-10">
-          <div>
-            <h3 class="text-xs font-medium mb-4 text-dark-text uppercase tracking-wider">
-              {t.sidebar.gettingStarted}
-            </h3>
-            <ul class="space-y-2.5">
-              <li>
-                <a href={`/${locale}/docs/installation`} class="text-sm text-dark-text-secondary hover:text-brand-400 transition-colors block">
-                  {t.sidebar.installation}
-                </a>
-              </li>
-              <li>
-                <a href={`/${locale}/docs/quick-start`} class="text-sm text-dark-text-secondary hover:text-brand-400 transition-colors block">
-                  {t.sidebar.quickStart}
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h3 class="text-xs font-medium mb-4 text-dark-text uppercase tracking-wider">
-              {t.sidebar.guides}
-            </h3>
-            <ul class="space-y-2.5">
-              <li>
-                <a href={`/${locale}/docs/question-management`} class="text-sm text-dark-text-secondary hover:text-brand-400 transition-colors block">
-                  {t.sidebar.questionManagement}
-                </a>
-              </li>
-              <li>
-                <a href={`/${locale}/docs/markdown-guide`} class="text-sm text-dark-text-secondary hover:text-brand-400 transition-colors block">
-                  {t.sidebar.markdownGuide}
-                </a>
-              </li>
-              <li>
-                <a href={`/${locale}/docs/domain-blocking`} class="text-sm text-dark-text-secondary hover:text-brand-400 transition-colors block">
-                  {t.sidebar.domainBlocking}
-                </a>
-              </li>
-              <li>
-                <a href={`/${locale}/docs/spaced-repetition`} class="text-sm text-dark-text-secondary hover:text-brand-400 transition-colors block">
-                  {t.sidebar.spacedRepetition}
-                </a>
-              </li>
-              <li>
-                <a href={`/${locale}/docs/question-types`} class="text-sm text-dark-text-secondary hover:text-brand-400 transition-colors block">
-                  {t.sidebar.questionTypes}
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h3 class="text-xs font-medium mb-4 text-dark-text uppercase tracking-wider">
-              {t.sidebar.advanced}
-            </h3>
-            <ul class="space-y-2.5">
-              <li>
-                <a href={`/${locale}/docs/backup`} class="text-sm text-dark-text-secondary hover:text-brand-400 transition-colors block">
-                  {t.sidebar.backup}
-                </a>
-              </li>
-              <li>
-                <a href={`/${locale}/docs/anki-import`} class="text-sm text-dark-text-secondary hover:text-brand-400 transition-colors block">
-                  {t.sidebar.ankiImport}
-                </a>
-              </li>
-              <li>
-                <a href={`/${locale}/docs/storage`} class="text-sm text-dark-text-secondary hover:text-brand-400 transition-colors block">
-                  {t.sidebar.storage}
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h3 class="text-xs font-medium mb-4 text-dark-text uppercase tracking-wider">
-              {t.sidebar.help}
-            </h3>
-            <ul class="space-y-2.5">
-              <li>
-                <a href={`/${locale}/docs/faq`} class="text-sm text-dark-text-secondary hover:text-brand-400 transition-colors block">
-                  {t.sidebar.faq}
-                </a>
-              </li>
-              <li>
-                <a href={`/${locale}/docs/troubleshooting`} class="text-sm text-dark-text-secondary hover:text-brand-400 transition-colors block">
-                  {t.sidebar.troubleshooting}
-                </a>
-              </li>
-            </ul>
-          </div>
-        </nav>
+    <div class="flex flex-col lg:flex-row" style="position: relative;">
+      <!-- Left Sidebar - Navigation + TOC -->
+      <aside class="hidden lg:block doc-sidebar">
+        <div class="doc-sidebar-content">
+          <nav style="margin-bottom: 2rem;">
+            <div>
+              <h3 class="text-xs font-medium mb-4 text-dark-text uppercase tracking-wider">
+                {t.sidebar.gettingStarted}
+              </h3>
+              <ul class="space-y-2.5">
+                <li>
+                  <a href={`/${locale}/docs/quick-start`} class="text-sm text-dark-text-secondary hover:text-brand-400 transition-colors block">
+                    {t.sidebar.quickStart}
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </nav>
+          
+          <!-- Table of Contents -->
+          {tocHeadings.length > 0 && (
+            <div class="border-t border-[#3c4043] pt-6">
+              <TableOfContents headings={tocHeadings} />
+            </div>
+          )}
+        </div>
       </aside>
 
       <!-- Content -->
-      <article class="prose max-w-none">
+      <article class="prose max-w-none doc-content">
         <slot />
       </article>
     </div>
   </div>
 </BaseLayout>
+
+<style>
+  .doc-sidebar {
+    width: 280px;
+    flex-shrink: 0;
+  }
+
+  .doc-sidebar-content {
+    position: fixed;
+    width: 280px;
+    top: 6rem;
+    max-height: calc(100vh - 7rem);
+    overflow-y: auto;
+    padding-right: 1rem;
+  }
+
+  .doc-content {
+    flex: 1;
+    min-width: 0;
+    margin-left: 4rem;
+  }
+
+  /* Responsive images */
+  .doc-content :global(.screenshot) {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 1rem 0;
+    cursor: pointer;
+    transition: transform 0.2s;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+
+  .doc-content :global(.screenshot:hover) {
+    transform: scale(1.02);
+  }
+
+  .doc-content :global(.screenshot.fullsize) {
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  @media (max-width: 1023px) {
+    .doc-content {
+      margin-left: 0;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .doc-content :global(.screenshot) {
+      width: 100% !important;
+    }
+  }
+
+  /* Custom scrollbar */
+  .doc-sidebar-content::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .doc-sidebar-content::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .doc-sidebar-content::-webkit-scrollbar-thumb {
+    background: #3c4043;
+    border-radius: 3px;
+  }
+
+  .doc-sidebar-content::-webkit-scrollbar-thumb:hover {
+    background: #5f6368;
+  }
+</style>
