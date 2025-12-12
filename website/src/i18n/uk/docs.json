@@ -5,7 +5,8 @@
   },
   "navigation": {
     "breadcrumb": "Головна",
-    "editPage": "Редагувати цю сторінку"
+    "editPage": "Редагувати цю сторінку",
+    "onThisPage": "На цій сторінці"
   }
 }
 

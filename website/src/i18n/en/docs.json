@@ -5,7 +5,8 @@
   },
   "navigation": {
     "breadcrumb": "Home",
-    "editPage": "Edit this page"
+    "editPage": "Edit this page",
+    "onThisPage": "On This Page"
   }
 }
 
