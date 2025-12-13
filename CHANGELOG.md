@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2025-12-13
+
+### Added
+- Anki .apkg file import support with full template rendering
+- Support for zstd-compressed Anki databases (Anki 2.1.50+)
+- Automatic quick-start page opening on first installation
+- Media file extraction and storage from .apkg files
+- Advanced Anki template syntax support (conditionals, hints, type-in fields)
+
+### Fixed
+- Domain list now updates correctly when removing domains
+- Markdown list rendering improved
+- Card snapshot consistency in tests
+
 ## [1.0.1] - 2025-11-20
 
 ### Fixed
@@ -39,7 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dark theme with Material Design 3-inspired UI
 - Chrome Web Store publication
 
-[Unreleased]: https://github.com/k-tkachov/rekapu/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/k-tkachov/rekapu/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/k-tkachov/rekapu/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/k-tkachov/rekapu/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/k-tkachov/rekapu/releases/tag/v1.0.0
 

@@ -1,7 +1,7 @@
 {
   "name": "rekapu-extension",
-  "version": "1.0.1",
-  "description": "A browser extension that combines spaced repetition learning with website access control",
+  "version": "1.1.0",
+  "description": "Rekapu: Block Distractions, Learn with Flashcards",
   "main": "index.js",
   "scripts": {
     "build": "npm test && webpack --mode=production",
