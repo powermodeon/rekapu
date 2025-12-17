@@ -38,7 +38,7 @@
     },
     "anki": {
       "title": "Anki Import",
-      "description": "Already have decks in Anki? Import plain text (.txt) files instantly. No need to recreate your cards - just bring your existing knowledge base."
+      "description": "Already have decks in Anki? Import plain text (.txt) or Anki package (.apkg) files instantly. No need to recreate your cards - just bring your existing knowledge base."
     },
     "markdown": {
       "title": "Markdown Support",
@@ -81,7 +81,7 @@
       },
       {
         "question": "How do I add new cards?",
-        "answer": "Three ways: (1) Click \"Add Card\" in the extension popup. (2) Select text on any page, right-click, and choose \"Add selection as card\". (3) Import Anki decks in plain text format (.txt)."
+        "answer": "Three ways: (1) Click \"Add Card\" in the extension popup. (2) Select text on any page, right-click, and choose \"Add selection as card\". (3) Import Anki decks in plain text format (.txt) or Anki package format (.apkg)."
       },
       {
         "question": "What sites should I block?",

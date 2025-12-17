@@ -36,7 +36,7 @@ Listen to your cards with natural voice synthesis powered by Google TTS. Perfect
 Activity calendar visualizes your consistency. Build learning streaks, hit daily goals, and watch your progress compound over time.
 
 ### 📦 Anki Import
-Already have decks in Anki? Import plain text (.txt) files instantly. No need to recreate your cards - bring your existing knowledge base.
+Already have decks in Anki? Import plain text (.txt) or Anki package (.apkg) files instantly. No need to recreate your cards - bring your existing knowledge base.
 
 ### ✍️ Markdown Support
 Format cards with markdown syntax. Add code blocks, lists, bold text, links, and embed images. Live preview while editing ensures cards look exactly as intended.
@@ -114,7 +114,7 @@ If you want to contribute or modify the extension:
 
 1. **Manual creation:** Click "Add Card" in the extension popup
 2. **Quick capture:** Select text on any page, right-click, and choose "Add selection as card"
-3. **Import from Anki:** Import Anki decks in plain text format (.txt)
+3. **Import from Anki:** Import Anki decks in plain text format (.txt) or Anki package format (.apkg)
 
 **Card types:**
 
