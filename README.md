@@ -68,7 +68,7 @@ If you want to contribute or modify the extension:
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/k-tkachov/rekapu.git
+   git clone https://github.com/powermodeon/rekapu.git
    cd rekapu
    ```
 
