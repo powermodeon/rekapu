@@ -5,7 +5,7 @@ import { getPageTranslations } from '../../i18n/utils';
 export async function getStaticPaths() {
   const config = await import('../../../astro.config.mjs');
   const locales = config.default.i18n?.locales || ['en'];
-  
+
   return locales.map(lang => ({
     params: { lang },
   }));
@@ -20,7 +20,7 @@ const common = await getPageTranslations(lang, 'common');
   <article class="max-w-4xl mx-auto px-6 py-16 prose prose-invert prose-lg">
     <h1 class="text-5xl font-medium mb-4">{privacy.title}</h1>
     <p class="text-dark-text-tertiary text-sm mb-8">{privacy.lastUpdated}</p>
-    
+
     <p class="text-xl text-dark-text-secondary mb-12">{privacy.intro}</p>
 
     <!-- TL;DR -->
@@ -41,7 +41,7 @@ const common = await getPageTranslations(lang, 'common');
     <!-- Data Collection -->
     <section class="mb-12">
       <h2 class="text-3xl font-medium mb-6">{privacy.dataCollection.title}</h2>
-      
+
       <div class="mb-8">
         <h3 class="text-2xl font-medium mb-4">{privacy.dataCollection.extension.title}</h3>
         <p class="text-dark-text-secondary mb-4">{privacy.dataCollection.extension.description}</p>
@@ -69,7 +69,7 @@ const common = await getPageTranslations(lang, 'common');
     <!-- Third-Party Services -->
     <section class="mb-12">
       <h2 class="text-3xl font-medium mb-6">{privacy.thirdParty.title}</h2>
-      
+
       <div class="mb-8">
         <h3 class="text-2xl font-medium mb-4">{privacy.thirdParty.tts.title}</h3>
         <p class="text-dark-text-secondary mb-4">{privacy.thirdParty.tts.description}</p>
@@ -153,7 +153,7 @@ const common = await getPageTranslations(lang, 'common');
       <h2 class="text-3xl font-medium mb-6">{privacy.contact.title}</h2>
       <p class="text-dark-text-secondary mb-4">{privacy.contact.description}</p>
       <ul class="list-disc list-inside space-y-2 text-dark-text-secondary">
-        <li>Open an issue on <a href="https://github.com/k-tkachov/rekapu" class="text-brand-400 hover:text-brand-300 transition-colors">GitHub</a></li>
+        <li>Open an issue on <a href="https://github.com/powermodeon/rekapu" class="text-brand-400 hover:text-brand-300 transition-colors">GitHub</a></li>
       </ul>
     </section>
 
@@ -163,4 +163,3 @@ const common = await getPageTranslations(lang, 'common');
     </div>
   </article>
 </BaseLayout>
-
