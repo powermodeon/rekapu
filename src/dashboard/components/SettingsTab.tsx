@@ -46,6 +46,13 @@ import {
   TTSSettings,
   TTSTagConfig,
 } from "../../tts/TTSKeyStorage";
+import { TTSProviderId, Voice } from "../../tts/TTSProvider";
+import {
+  TTS_PROVIDERS,
+  TTS_PROVIDER_IDS,
+  isTTSProviderId,
+  voiceMatchesModel,
+} from "../../tts/providerCatalog";
 import { t } from "../../utils/i18n";
 
 export const SettingsTab: React.FC = () => {
@@ -82,6 +89,7 @@ export const SettingsTab: React.FC = () => {
 
   // TTS settings state
   const [ttsSettings, setTtsSettings] = useState<TTSSettings | null>(null);
+  const [ttsProvider, setTtsProvider] = useState<TTSProviderId>("google");
   const [ttsLoading, setTtsLoading] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState("");
@@ -92,7 +100,7 @@ export const SettingsTab: React.FC = () => {
   const [testLanguage, setTestLanguage] = useState("en-US");
   const [testVoice, setTestVoice] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
-  const [availableVoices, setAvailableVoices] = useState<any[]>([]);
+  const [availableVoices, setAvailableVoices] = useState<Voice[]>([]);
   const [availableLanguages, setAvailableLanguages] = useState<
     Array<{ code: string; name: string }>
   >([]);
@@ -106,12 +114,20 @@ export const SettingsTab: React.FC = () => {
   const [tagConfigs, setTagConfigs] = useState<{ [tag: string]: TTSTagConfig }>(
     {},
   );
-  const [tagVoices, setTagVoices] = useState<{ [tag: string]: any[] }>({});
+  const [tagVoices, setTagVoices] = useState<{ [tag: string]: Voice[] }>({});
 
   const toast = useToast();
 
   const ttsService = TTSService.getInstance();
   const ttsKeyStorage = TTSKeyStorage.getInstance();
+  const providerInfo = TTS_PROVIDERS[ttsProvider];
+
+  const createDefaultTagConfig = (): TTSTagConfig => ({
+    language: providerInfo.defaultLanguage,
+    model: providerInfo.defaultModel,
+    voice: "",
+    cardSide: "back",
+  });
 
   // Material dark theme colors
   const bgColor = "#202124";
@@ -124,22 +140,22 @@ export const SettingsTab: React.FC = () => {
   useEffect(() => {
     loadSettings();
     loadStorageData();
-    loadTTSSettings();
+    loadTTSSettings({ applyProviderDefaults: true });
     loadTags();
   }, []);
 
   // Auto-load voices when model changes
   useEffect(() => {
-    if (selectedModel) {
-      loadAvailableVoices();
+    if (selectedModel && hasApiKey) {
+      loadAvailableVoices(testLanguage);
     }
-  }, [selectedModel, testLanguage]);
+  }, [selectedModel, testLanguage, hasApiKey, ttsProvider]);
 
   // Auto-select first voice when available voices change
   useEffect(() => {
     if (availableVoices.length > 0) {
-      const filteredVoices = availableVoices.filter(
-        (voice) => !selectedModel || voice.model === selectedModel,
+      const filteredVoices = availableVoices.filter((voice) =>
+        voiceMatchesModel(voice, selectedModel),
       );
       if (filteredVoices.length > 0 && testVoice !== filteredVoices[0].id) {
         setTestVoice(filteredVoices[0].id);
@@ -289,19 +305,38 @@ export const SettingsTab: React.FC = () => {
     }
   };
 
-  const loadTTSSettings = async () => {
+  const loadTTSSettings = async ({
+    applyProviderDefaults = false,
+  }: { applyProviderDefaults?: boolean } = {}) => {
     try {
       const settings = await ttsKeyStorage.getSettings();
 
       if (settings) {
+        // Voices, languages and models are provider-specific, so reset them
+        // in the same render as the provider switch
+        if (applyProviderDefaults) {
+          const info = TTS_PROVIDERS[settings.provider];
+          setAvailableVoices([]);
+          setAvailableLanguages([]);
+          setTagVoices({});
+          setExpandedTag(null);
+          setTestVoice("");
+          setTestLanguage(info.defaultLanguage);
+          // Google voices can be browsed across all models; ElevenLabs needs a model to synthesize
+          setSelectedModel(
+            settings.provider === "google" ? "" : info.defaultModel,
+          );
+        }
+
         setTtsSettings(settings);
+        setTtsProvider(settings.provider);
         // Don't pre-fill the API key input - only track if it exists
         const hasKey = !!settings.keys[settings.provider];
         setHasApiKey(hasKey);
         setApiKeyInput(""); // Always start with empty input
         setShowApiKey(false); // Reset show state
         setEnabledTags(settings.enabledTags || []);
-        setTagConfigs(settings.tagConfigs || {});
+        setTagConfigs(settings.tagConfigsByProvider[settings.provider] || {});
 
         // Load available languages if API key exists
         if (hasKey) {
@@ -327,8 +362,24 @@ export const SettingsTab: React.FC = () => {
     }
   };
 
+  const handleProviderChange = async (provider: TTSProviderId) => {
+    try {
+      await ttsKeyStorage.updateProvider(provider);
+      await loadTTSSettings({ applyProviderDefaults: true });
+    } catch (error) {
+      console.error("Failed to switch TTS provider:", error);
+      toast({
+        title: t("error"),
+        description: t("failedToSwitchProvider"),
+        status: "error",
+        duration: 3000,
+      });
+    }
+  };
+
   const handleSaveApiKey = async () => {
-    if (!apiKeyInput.trim()) {
+    const apiKey = apiKeyInput.trim();
+    if (!apiKey) {
       toast({
         title: t("error"),
         description: t("enterApiKeyError"),
@@ -340,20 +391,26 @@ export const SettingsTab: React.FC = () => {
 
     setTtsLoading(true);
     try {
-      console.log("Validating Google TTS API key...");
-      const isValid = await ttsService.validateApiKey("google", apiKeyInput);
+      console.log(`Validating ${providerInfo.displayName} API key...`);
+      const validation = await ttsService.validateApiKey(ttsProvider, apiKey);
 
-      if (!isValid) {
+      if (!validation.valid) {
+        const hint =
+          ttsProvider === "elevenlabs"
+            ? t("invalidElevenLabsApiKeyDesc")
+            : t("invalidApiKeyDesc");
         toast({
           title: t("invalidApiKey"),
-          description: t("invalidApiKeyDesc"),
+          description: validation.message
+            ? `${validation.message} — ${hint}`
+            : hint,
           status: "error",
           duration: 10000,
         });
         return;
       }
 
-      await ttsKeyStorage.saveApiKey("google", apiKeyInput);
+      await ttsKeyStorage.saveApiKey(ttsProvider, apiKey);
 
       await loadTTSSettings();
       await loadAvailableLanguages();
@@ -362,12 +419,23 @@ export const SettingsTab: React.FC = () => {
       setApiKeyInput("");
       setShowApiKey(false);
 
-      toast({
-        title: t("apiKeySaved"),
-        description: t("apiKeySavedDesc"),
-        status: "success",
-        duration: 5000,
-      });
+      if (validation.message) {
+        // Valid key with limited access, e.g. it can't list voices
+        toast({
+          title: t("apiKeySaved"),
+          description: t("apiKeySavedLimitedAccess", validation.message),
+          status: "warning",
+          duration: 15000,
+          isClosable: true,
+        });
+      } else {
+        toast({
+          title: t("apiKeySaved"),
+          description: t("apiKeySavedDesc", providerInfo.displayName),
+          status: "success",
+          duration: 5000,
+        });
+      }
     } catch (error) {
       toast({
         title: t("error"),
@@ -382,28 +450,19 @@ export const SettingsTab: React.FC = () => {
 
   const loadAvailableLanguages = async () => {
     try {
-      // Fetch all voices without language filter to get all languages
-      const allVoices = await ttsService.getAvailableVoices();
+      const languageCodes = await ttsService.getSupportedLanguages();
 
-      // Extract unique language codes
-      const languageMap = new Map<string, string>();
-      allVoices.forEach((voice: any) => {
-        if (voice.languageCode && !languageMap.has(voice.languageCode)) {
+      const languageNames = new Intl.DisplayNames(["en"], { type: "language" });
+      const languages = languageCodes
+        .map((code) => {
           // Create a readable name from language code
-          const displayName =
-            new Intl.DisplayNames(["en"], { type: "language" }).of(
-              voice.languageCode.split("-")[0],
-            ) || voice.languageCode;
-          const region = voice.languageCode.includes("-")
-            ? ` (${voice.languageCode.split("-")[1]})`
-            : "";
-          languageMap.set(voice.languageCode, `${displayName}${region}`);
-        }
-      });
-
-      // Convert to sorted array
-      const languages = Array.from(languageMap.entries())
-        .map(([code, name]) => ({ code, name }))
+          const [base, region] = code.split("-");
+          const displayName = languageNames.of(base) || code;
+          return {
+            code,
+            name: region ? `${displayName} (${region})` : displayName,
+          };
+        })
         .sort((a, b) => a.name.localeCompare(b.name));
 
       setAvailableLanguages(languages);
@@ -412,10 +471,10 @@ export const SettingsTab: React.FC = () => {
     }
   };
 
-  const loadAvailableVoices = async () => {
+  const loadAvailableVoices = async (language: string) => {
     setTtsLoading(true);
     try {
-      const voices = await ttsService.getAvailableVoices(testLanguage);
+      const voices = await ttsService.getAvailableVoices(language);
       setAvailableVoices(voices);
       if (voices.length > 0 && !testVoice) {
         setTestVoice(voices[0].id);
@@ -424,7 +483,10 @@ export const SettingsTab: React.FC = () => {
       console.error("Failed to load voices:", error);
       toast({
         title: t("error"),
-        description: t("failedToLoadVoices"),
+        description:
+          error instanceof Error
+            ? `${t("failedToLoadVoices")} ${error.message}`
+            : t("failedToLoadVoices"),
         status: "error",
         duration: 5000,
       });
@@ -477,8 +539,8 @@ export const SettingsTab: React.FC = () => {
       const result = await ttsService.synthesize({
         text: testVoiceText,
         language: testLanguage,
-        voice: selectedVoice.name,
-        model: selectedVoice.model,
+        voice: selectedVoice.id,
+        model: selectedVoice.model || selectedModel || undefined,
       });
 
       if (!result.success || !result.audio) {
@@ -538,19 +600,19 @@ export const SettingsTab: React.FC = () => {
     if (isEnabling && !tagConfigs[tag]) {
       try {
         // Load voices for the default language
-        const defaultLanguage = "en-US";
-        const voices = await ttsService.getAvailableVoices(defaultLanguage);
+        const baseConfig = createDefaultTagConfig();
+        const voices = await ttsService.getAvailableVoices(baseConfig.language);
 
-        // Find first Neural2 voice, or fallback to any voice
+        // Find first voice for the default model, or fallback to any voice
         const defaultVoice =
-          voices.find((v) => v.model === "Neural2") || voices[0];
+          voices.find((v) => voiceMatchesModel(v, baseConfig.model)) ||
+          voices[0];
 
         if (defaultVoice) {
           const defaultConfig: TTSTagConfig = {
-            language: defaultLanguage,
-            model: defaultVoice.model || "Neural2",
+            ...baseConfig,
+            model: defaultVoice.model || baseConfig.model,
             voice: defaultVoice.id,
-            cardSide: "back",
           };
 
           setTagConfigs((prev) => ({ ...prev, [tag]: defaultConfig }));
@@ -612,15 +674,10 @@ export const SettingsTab: React.FC = () => {
     }
   };
 
-  const loadTagVoices = async (tag: string) => {
+  const loadTagVoices = async (tag: string): Promise<Voice[]> => {
     try {
       // Use existing config or create default
-      const config = tagConfigs[tag] || {
-        language: "en-US",
-        model: "Neural2",
-        voice: "",
-        cardSide: "back" as "front" | "back" | "both",
-      };
+      const config = tagConfigs[tag] || createDefaultTagConfig();
 
       // If this is a new tag without config, save the default
       if (!tagConfigs[tag]) {
@@ -628,11 +685,20 @@ export const SettingsTab: React.FC = () => {
         await ttsKeyStorage.setTagConfig(tag, config);
       }
 
-      const voices = await ttsService.getAvailableVoices(config.language);
-      setTagVoices((prev) => ({ ...prev, [tag]: voices }));
+      return await fetchTagVoices(tag, config.language);
     } catch (error) {
       console.error(`Failed to load voices for tag ${tag}:`, error);
+      return [];
     }
+  };
+
+  const fetchTagVoices = async (
+    tag: string,
+    language: string,
+  ): Promise<Voice[]> => {
+    const voices = await ttsService.getAvailableVoices(language);
+    setTagVoices((prev) => ({ ...prev, [tag]: voices }));
+    return voices;
   };
 
   const handleTagConfigChange = async (
@@ -640,23 +706,31 @@ export const SettingsTab: React.FC = () => {
     field: "language" | "model" | "voice" | "cardSide",
     value: string,
   ) => {
-    const currentConfig = tagConfigs[tag] || {
-      language: "en-US",
-      model: "Neural2",
-      voice: "",
-      cardSide: "back" as "front" | "back" | "both",
-    };
+    const currentConfig = tagConfigs[tag] || createDefaultTagConfig();
 
     const newConfig = { ...currentConfig, [field]: value };
 
-    // If language or model changes, reset voice and reload voices
+    // If language or model changes, keep the voice only if it still fits,
+    // otherwise fall back to the first matching voice
     if (field === "language" || field === "model") {
-      newConfig.voice = "";
-      setTagConfigs((prev) => ({ ...prev, [tag]: newConfig }));
-      await loadTagVoices(tag);
-    } else {
-      setTagConfigs((prev) => ({ ...prev, [tag]: newConfig }));
+      let voices = tagVoices[tag] || [];
+      if (field === "language") {
+        try {
+          voices = await fetchTagVoices(tag, newConfig.language);
+        } catch (error) {
+          console.error(`Failed to load voices for tag ${tag}:`, error);
+          voices = [];
+        }
+      }
+      const matchingVoices = voices.filter((v) =>
+        voiceMatchesModel(v, newConfig.model),
+      );
+      if (!matchingVoices.some((v) => v.id === newConfig.voice)) {
+        newConfig.voice = matchingVoices[0]?.id || "";
+      }
     }
+
+    setTagConfigs((prev) => ({ ...prev, [tag]: newConfig }));
 
     // Save to storage
     await ttsKeyStorage.setTagConfig(tag, newConfig);
@@ -1055,6 +1129,31 @@ export const SettingsTab: React.FC = () => {
               <Text color={textPrimary} fontSize="xs" fontWeight="medium">
                 {t("apiConfiguration")}
               </Text>
+              <HStack spacing={2}>
+                <Text color={textSecondary} fontSize="xs" w="80px">
+                  {t("ttsProvider")}
+                </Text>
+                <Select
+                  value={ttsProvider}
+                  onChange={(e) => {
+                    if (isTTSProviderId(e.target.value)) {
+                      handleProviderChange(e.target.value);
+                    }
+                  }}
+                  size="sm"
+                  bg={bgColor}
+                  borderColor={borderColor}
+                  color={textPrimary}
+                  fontSize="sm"
+                  flex={1}
+                >
+                  {TTS_PROVIDER_IDS.map((id) => (
+                    <option key={id} value={id}>
+                      {TTS_PROVIDERS[id].displayName}
+                    </option>
+                  ))}
+                </Select>
+              </HStack>
               <InputGroup size="sm">
                 <Input
                   type={showApiKey ? "text" : "password"}
@@ -1063,7 +1162,7 @@ export const SettingsTab: React.FC = () => {
                   placeholder={
                     hasApiKey
                       ? t("apiKeySavedPlaceholder")
-                      : t("enterApiKeyPlaceholder")
+                      : t("enterApiKeyPlaceholder", providerInfo.displayName)
                   }
                   bg={bgColor}
                   borderColor={borderColor}
@@ -1097,31 +1196,50 @@ export const SettingsTab: React.FC = () => {
                   {t("saveApiKey")}
                 </Button>
               </HStack>
-              <VStack align="start" spacing={1}>
-                <Text color={textTertiary} fontSize="xs">
-                  {t("getApiKeyFrom")}{" "}
-                  <a
-                    href="https://console.cloud.google.com/apis/credentials"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: "#8AB4F8", textDecoration: "underline" }}
-                  >
-                    {t("googleCloudConsole")}
-                  </a>
-                </Text>
-                <Text color={textTertiary} fontSize="xs">
-                  {t("makeEnableTTS")}{" "}
-                  <a
-                    href="https://console.cloud.google.com/apis/library/texttospeech.googleapis.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: "#8AB4F8", textDecoration: "underline" }}
-                  >
-                    {t("cloudTTSAPI")}
-                  </a>{" "}
-                  {t("inYourProject")}
-                </Text>
-              </VStack>
+              {ttsProvider === "elevenlabs" ? (
+                <VStack align="start" spacing={1}>
+                  <Text color={textTertiary} fontSize="xs">
+                    {t("getApiKeyFrom")}{" "}
+                    <a
+                      href="https://elevenlabs.io/app/settings/api-keys"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "#8AB4F8", textDecoration: "underline" }}
+                    >
+                      {t("elevenLabsApiKeysPage")}
+                    </a>
+                  </Text>
+                  <Text color={textTertiary} fontSize="xs">
+                    {t("elevenLabsKeyPermissions")}
+                  </Text>
+                </VStack>
+              ) : (
+                <VStack align="start" spacing={1}>
+                  <Text color={textTertiary} fontSize="xs">
+                    {t("getApiKeyFrom")}{" "}
+                    <a
+                      href="https://console.cloud.google.com/apis/credentials"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "#8AB4F8", textDecoration: "underline" }}
+                    >
+                      {t("googleCloudConsole")}
+                    </a>
+                  </Text>
+                  <Text color={textTertiary} fontSize="xs">
+                    {t("makeEnableTTS")}{" "}
+                    <a
+                      href="https://console.cloud.google.com/apis/library/texttospeech.googleapis.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "#8AB4F8", textDecoration: "underline" }}
+                    >
+                      {t("cloudTTSAPI")}
+                    </a>{" "}
+                    {t("inYourProject")}
+                  </Text>
+                </VStack>
+              )}
             </VStack>
 
             <Divider borderColor={borderColor} />
@@ -1152,7 +1270,10 @@ export const SettingsTab: React.FC = () => {
                   value={testLanguage}
                   onChange={(e) => {
                     setTestLanguage(e.target.value);
-                    loadAvailableVoices();
+                    // With a model selected, the effect reloads voices
+                    if (!selectedModel) {
+                      loadAvailableVoices(e.target.value);
+                    }
                   }}
                   size="sm"
                   bg={bgColor}
@@ -1185,12 +1306,14 @@ export const SettingsTab: React.FC = () => {
                     setTestVoice(""); // Reset voice when model changes
                   }}
                 >
-                  <option value="">{t("allModelsOption")}</option>
-                  <option value="Neural2">{t("neural2HighQuality")}</option>
-                  <option value="WaveNet">{t("wavenetNatural")}</option>
-                  <option value="Chirp3">{t("chirp3HDVoices")}</option>
-                  <option value="Studio">{t("studioPremium")}</option>
-                  <option value="Standard">{t("standardBasic")}</option>
+                  {ttsProvider === "google" && (
+                    <option value="">{t("allModelsOption")}</option>
+                  )}
+                  {providerInfo.models.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {t(model.labelKey)}
+                    </option>
+                  ))}
                 </Select>
                 <Select
                   value={testVoice}
@@ -1209,9 +1332,8 @@ export const SettingsTab: React.FC = () => {
                     <option>{t("selectModelFirstOption")}</option>
                   ) : (
                     availableVoices
-                      .filter(
-                        (voice) =>
-                          !selectedModel || voice.model === selectedModel,
+                      .filter((voice) =>
+                        voiceMatchesModel(voice, selectedModel),
                       )
                       .map((voice) => (
                         <option key={voice.id} value={voice.id}>
@@ -1276,12 +1398,7 @@ export const SettingsTab: React.FC = () => {
                   {allTags.map((tag) => {
                     const isEnabled = enabledTags.includes(tag);
                     const isExpanded = expandedTag === tag;
-                    const config = tagConfigs[tag] || {
-                      language: "en-US",
-                      model: "Neural2",
-                      voice: "",
-                      cardSide: "back" as "front" | "back" | "both",
-                    };
+                    const config = tagConfigs[tag] || createDefaultTagConfig();
                     const voices = tagVoices[tag] || [];
 
                     return (
@@ -1389,21 +1506,11 @@ export const SettingsTab: React.FC = () => {
                                 color={textPrimary}
                                 fontSize="xs"
                               >
-                                <option value="Neural2">
-                                  {t("neural2HighQuality")}
-                                </option>
-                                <option value="WaveNet">
-                                  {t("wavenetNatural")}
-                                </option>
-                                <option value="Chirp3">
-                                  {t("chirp3HDVoices")}
-                                </option>
-                                <option value="Studio">
-                                  {t("studioPremium")}
-                                </option>
-                                <option value="Standard">
-                                  {t("standardBasic")}
-                                </option>
+                                {providerInfo.models.map((model) => (
+                                  <option key={model.id} value={model.id}>
+                                    {t(model.labelKey)}
+                                  </option>
+                                ))}
                               </Select>
                             </HStack>
 
@@ -1435,8 +1542,8 @@ export const SettingsTab: React.FC = () => {
                                   <option>{t("loadingVoicesOption")}</option>
                                 ) : (
                                   voices
-                                    .filter(
-                                      (voice) => voice.model === config.model,
+                                    .filter((voice) =>
+                                      voiceMatchesModel(voice, config.model),
                                     )
                                     .map((voice) => (
                                       <option key={voice.id} value={voice.id}>

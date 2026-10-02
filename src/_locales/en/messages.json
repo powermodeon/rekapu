@@ -630,7 +630,7 @@
     "message": "Text-to-Speech (TTS)"
   },
   "ttsDescription": {
-    "message": "Enable audio playback for cards using Google Cloud TTS"
+    "message": "Enable audio playback for cards using Google Cloud TTS or ElevenLabs"
   },
   "securityNoticeTitle": {
     "message": "Security Notice"
@@ -771,7 +771,13 @@
     "message": "API Key Saved"
   },
   "apiKeySavedDesc": {
-    "message": "Your Google TTS API key has been saved successfully. Select a language and model to load voices."
+    "message": "Your $PROVIDER$ API key has been saved successfully. Select a language and model to load voices.",
+    "placeholders": {
+      "provider": {
+        "content": "$1",
+        "example": "ElevenLabs"
+      }
+    }
   },
   "failedToSaveApiKey": {
     "message": "Failed to save API key"
@@ -960,7 +966,13 @@
     "message": "These tags will be added to all imported cards in addition to any tags from the Anki file"
   },
   "enterApiKeyPlaceholder": {
-    "message": "Enter Google Cloud TTS API key"
+    "message": "Enter $PROVIDER$ API key",
+    "placeholders": {
+      "provider": {
+        "content": "$1",
+        "example": "ElevenLabs"
+      }
+    }
   },
   "apiKeySavedPlaceholder": {
     "message": "API key is saved • Enter new key to replace"
@@ -2112,5 +2124,44 @@
   },
   "clozeContentHelper": {
     "message": "Wrap text you want to hide with {{c1::text}} for the first card, {{c2::text}} for the second, etc. You can add hints like {{c1::answer::hint}}. Each cloze deletion creates a separate card."
+  },
+  "ttsProvider": {
+    "message": "Provider"
+  },
+  "failedToSwitchProvider": {
+    "message": "Failed to switch TTS provider"
+  },
+  "invalidElevenLabsApiKeyDesc": {
+    "message": "The API key you entered is not valid. Check the browser console for details. If the key has restricted permissions, make sure it can read voices."
+  },
+  "elevenLabsApiKeysPage": {
+    "message": "ElevenLabs API keys settings"
+  },
+  "elevenLabsKeyPermissions": {
+    "message": "If you restrict the key, allow Text to Speech access and read access to Voices."
+  },
+  "elevenMultilingualV2": {
+    "message": "Multilingual v2 (Stable, default)"
+  },
+  "elevenFlashV25": {
+    "message": "Flash v2.5 (Fast, lower cost)"
+  },
+  "elevenV4": {
+    "message": "Eleven v4 (Most expressive)"
+  },
+  "elevenV4Turbo": {
+    "message": "Eleven v4 Turbo (Expressive, faster)"
+  },
+  "elevenV3": {
+    "message": "Eleven v3"
+  },
+  "apiKeySavedLimitedAccess": {
+    "message": "API key saved, but the provider reported: $MESSAGE$ If the key has restricted permissions, give it read access to Voices so voices can be loaded.",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "The API key you used is missing the permission voices_read."
+      }
+    }
   }
 }

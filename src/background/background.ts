@@ -11,6 +11,7 @@ import { BackupScope } from '../types/storage';
 import { DailyToastTracker } from './toastTracker';
 import { TTSKeyStorage } from '../tts/TTSKeyStorage';
 import { TTSService } from '../tts/TTSService';
+import { voiceMatchesModel } from '../tts/providerCatalog';
 import { indexedDBManager } from '../storage/IndexedDBManager';
 import { loadDemoCards } from '../utils/demoCardsLoader';
 import { loadDefaultDomains } from '../utils/defaultDomainsLoader';
@@ -2026,7 +2027,7 @@ async function handleSynthesizeTTS(message: any): Promise<{ success: boolean; au
         if (!voice && model) {
           try {
             const voices = await ttsService.getAvailableVoices(language);
-            const matchingVoice = voices.find(v => v.model === model);
+            const matchingVoice = voices.find(v => voiceMatchesModel(v, model));
             if (matchingVoice) {
               voice = matchingVoice.id;
             }

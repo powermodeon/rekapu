@@ -30,7 +30,7 @@
     },
     "tts": {
       "title": "Text-to-Speech",
-      "description": "Listen to your cards with natural voice synthesis powered by Google TTS. Perfect for audio learners and language practice.<br>*Requires your own API key."
+      "description": "Listen to your cards with natural voice synthesis powered by Google Cloud TTS or ElevenLabs. Perfect for audio learners and language practice.<br>*Requires your own API key."
     },
     "statistics": {
       "title": "Daily Goals & Streaks",

@@ -1,8 +1,6 @@
-export interface TTSKeys {
-  google?: string;
-  openai?: string;
-  elevenlabs?: string;
-}
+import { TTSProviderId } from './TTSProvider';
+
+export type TTSKeys = Partial<Record<TTSProviderId, string>>;
 
 export interface TTSTagConfig {
   language: string;
@@ -11,16 +9,35 @@ export interface TTSTagConfig {
   cardSide: 'front' | 'back' | 'both';
 }
 
+export type TTSTagConfigMap = {
+  [tagName: string]: TTSTagConfig;
+};
+
 export interface TTSSettings {
-  provider: 'google' | 'openai' | 'elevenlabs';
+  provider: TTSProviderId;
   keys: TTSKeys;
   selectedVoices: {
     [languageCode: string]: string;
   };
   cacheSizeLimit: number;
   enabledTags: string[];
-  tagConfigs: {
-    [tagName: string]: TTSTagConfig;
+  // Voices and models are provider-specific, so each provider keeps its own tag configs
+  tagConfigsByProvider: Partial<Record<TTSProviderId, TTSTagConfigMap>>;
+}
+
+// Settings saved before multi-provider support kept Google tag configs in `tagConfigs`
+type StoredTTSSettings = Partial<TTSSettings> & {
+  tagConfigs?: TTSTagConfigMap;
+};
+
+function createDefaultSettings(): TTSSettings {
+  return {
+    provider: 'google',
+    keys: {},
+    selectedVoices: {},
+    cacheSizeLimit: 100 * 1024 * 1024,
+    enabledTags: [],
+    tagConfigsByProvider: {}
   };
 }
 
@@ -48,10 +65,26 @@ export class TTSKeyStorage {
 
   async getSettings(): Promise<TTSSettings | null> {
     const result = await chrome.storage.local.get(this.storageKey);
-    return result[this.storageKey] || null;
+    const stored: StoredTTSSettings | undefined = result[this.storageKey];
+    if (!stored) {
+      return null;
+    }
+
+    const { tagConfigs: legacyTagConfigs, ...rest } = stored;
+    const settings: TTSSettings = { ...createDefaultSettings(), ...rest };
+
+    if (!stored.tagConfigsByProvider && legacyTagConfigs) {
+      settings.tagConfigsByProvider = { google: legacyTagConfigs };
+    }
+
+    return settings;
   }
 
-  async getApiKey(provider: 'google' | 'openai' | 'elevenlabs'): Promise<string | null> {
+  private async getSettingsOrDefault(): Promise<TTSSettings> {
+    return (await this.getSettings()) || createDefaultSettings();
+  }
+
+  async getApiKey(provider: TTSProviderId): Promise<string | null> {
     const settings = await this.getSettings();
     if (!settings) {
       return null;
@@ -60,25 +93,13 @@ export class TTSKeyStorage {
     return settings.keys[provider] || null;
   }
 
-  async saveApiKey(
-    provider: 'google' | 'openai' | 'elevenlabs',
-    apiKey: string
-  ): Promise<void> {
-    const settings = await this.getSettings();
-    const currentSettings = settings || {
-      provider: 'google',
-      keys: {},
-      selectedVoices: {},
-      cacheSizeLimit: 100 * 1024 * 1024,
-      enabledTags: [],
-      tagConfigs: {}
-    };
-
+  async saveApiKey(provider: TTSProviderId, apiKey: string): Promise<void> {
+    const currentSettings = await this.getSettingsOrDefault();
     currentSettings.keys[provider] = apiKey;
     await this.saveSettings(currentSettings);
   }
 
-  async deleteApiKey(provider: 'google' | 'openai' | 'elevenlabs'): Promise<void> {
+  async deleteApiKey(provider: TTSProviderId): Promise<void> {
     const settings = await this.getSettings();
     if (!settings) {
       return;
@@ -92,14 +113,10 @@ export class TTSKeyStorage {
     await chrome.storage.local.remove(this.storageKey);
   }
 
-  async updateProvider(provider: 'google' | 'openai' | 'elevenlabs'): Promise<void> {
-    const settings = await this.getSettings();
-    if (!settings) {
-      return;
-    }
-
-    settings.provider = provider;
-    await this.saveSettings(settings);
+  async updateProvider(provider: TTSProviderId): Promise<void> {
+    const currentSettings = await this.getSettingsOrDefault();
+    currentSettings.provider = provider;
+    await this.saveSettings(currentSettings);
   }
 
   async updateSelectedVoice(languageCode: string, voiceId: string): Promise<void> {
@@ -123,16 +140,7 @@ export class TTSKeyStorage {
   }
 
   async setEnabledTags(tags: string[]): Promise<void> {
-    const settings = await this.getSettings();
-    const currentSettings = settings || {
-      provider: 'google',
-      keys: {},
-      selectedVoices: {},
-      cacheSizeLimit: 100 * 1024 * 1024,
-      enabledTags: [],
-      tagConfigs: {}
-    };
-
+    const currentSettings = await this.getSettingsOrDefault();
     currentSettings.enabledTags = tags;
     await this.saveSettings(currentSettings);
   }
@@ -147,41 +155,32 @@ export class TTSKeyStorage {
     return enabledTags.includes(tag);
   }
 
+  /** Saves the tag config for the currently selected provider. */
   async setTagConfig(tag: string, config: TTSTagConfig): Promise<void> {
-    const settings = await this.getSettings();
-    
-    const currentSettings: TTSSettings = settings || {
-      provider: 'google',
-      keys: {},
-      selectedVoices: {},
-      cacheSizeLimit: 100 * 1024 * 1024,
-      enabledTags: [],
-      tagConfigs: {}
+    const currentSettings = await this.getSettingsOrDefault();
+    const provider = currentSettings.provider;
+
+    currentSettings.tagConfigsByProvider[provider] = {
+      ...currentSettings.tagConfigsByProvider[provider],
+      [tag]: config
     };
 
-    // Ensure tagConfigs exists (for backward compatibility)
-    if (!currentSettings.tagConfigs) {
-      currentSettings.tagConfigs = {};
-    }
-
-    currentSettings.tagConfigs[tag] = config;
-    
     await this.saveSettings(currentSettings);
   }
 
+  /** Returns the tag config for the currently selected provider. */
   async getTagConfig(tag: string): Promise<TTSTagConfig | null> {
-    const settings = await this.getSettings();
-    
-    if (!settings || !settings.tagConfigs) {
-      return null;
-    }
-    
-    return settings.tagConfigs[tag] || null;
+    const configs = await this.getAllTagConfigs();
+    return configs[tag] || null;
   }
 
-  async getAllTagConfigs(): Promise<{ [tagName: string]: TTSTagConfig }> {
+  /** Returns all tag configs for the currently selected provider. */
+  async getAllTagConfigs(): Promise<TTSTagConfigMap> {
     const settings = await this.getSettings();
-    return settings?.tagConfigs || {};
+    if (!settings) {
+      return {};
+    }
+
+    return settings.tagConfigsByProvider[settings.provider] || {};
   }
 }
-

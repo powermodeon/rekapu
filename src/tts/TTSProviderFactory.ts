@@ -1,5 +1,7 @@
-import { TTSProvider, TTSProviderConfig } from './TTSProvider';
+import { TTSProvider, TTSProviderConfig, TTSProviderId } from './TTSProvider';
 import { GoogleTTSProvider } from './providers/GoogleTTSProvider';
+import { ElevenLabsTTSProvider } from './providers/ElevenLabsTTSProvider';
+import { TTS_PROVIDER_IDS } from './providerCatalog';
 
 export class TTSProviderFactory {
   private static instance: TTSProviderFactory;
@@ -15,8 +17,8 @@ export class TTSProviderFactory {
   }
 
   createProvider(config: TTSProviderConfig): TTSProvider {
-    const cacheKey = `${config.provider}:${config.apiKey.substring(0, 10)}`;
-    
+    const cacheKey = `${config.provider}:${config.apiKey}`;
+
     if (this.providers.has(cacheKey)) {
       return this.providers.get(cacheKey)!;
     }
@@ -27,13 +29,11 @@ export class TTSProviderFactory {
       case 'google':
         provider = new GoogleTTSProvider(config.apiKey);
         break;
-      
-      case 'openai':
-        throw new Error('OpenAI TTS provider not yet implemented. Use Google TTS for MVP.');
-      
+
       case 'elevenlabs':
-        throw new Error('ElevenLabs TTS provider not yet implemented. Use Google TTS for MVP.');
-      
+        provider = new ElevenLabsTTSProvider(config.apiKey);
+        break;
+
       default:
         throw new Error(`Unknown TTS provider: ${config.provider}`);
     }
@@ -46,8 +46,7 @@ export class TTSProviderFactory {
     this.providers.clear();
   }
 
-  getSupportedProviders(): string[] {
-    return ['google'];
+  getSupportedProviders(): TTSProviderId[] {
+    return TTS_PROVIDER_IDS;
   }
 }
-

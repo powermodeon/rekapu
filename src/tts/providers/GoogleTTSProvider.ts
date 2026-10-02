@@ -1,4 +1,4 @@
-import { BaseTTSProvider, TTSOptions, Voice } from '../TTSProvider';
+import { ApiKeyValidationResult, BaseTTSProvider, TTSOptions, Voice } from '../TTSProvider';
 
 interface GoogleTTSRequest {
   input: {
@@ -121,7 +121,7 @@ export class GoogleTTSProvider extends BaseTTSProvider {
     });
   }
 
-  async validateApiKey(key: string): Promise<boolean> {
+  async validateApiKey(key: string): Promise<ApiKeyValidationResult> {
     try {
       const testUrl = `${this.baseUrl}/voices`;
       const response = await fetch(testUrl, {
@@ -137,13 +137,21 @@ export class GoogleTTSProvider extends BaseTTSProvider {
           statusText: response.statusText,
           error: errorText
         });
-        return false;
+        return { valid: false, message: this.extractErrorMessage(errorText) };
       }
       
-      return true;
+      return { valid: true };
     } catch (error) {
       console.error('API key validation network error:', error);
-      return false;
+      return { valid: false, message: error instanceof Error ? error.message : undefined };
+    }
+  }
+
+  private extractErrorMessage(errorText: string): string {
+    try {
+      return JSON.parse(errorText).error?.message || errorText;
+    } catch {
+      return errorText;
     }
   }
 
