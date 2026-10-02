@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- ElevenLabs as a Text-to-Speech provider, alongside Google Cloud TTS
+- Provider selector in Settings → Text-to-Speech; each provider keeps its own API key and per-tag voice settings
+
+### Fixed
+- Changing the TTS test language or a tag's language now loads voices for the newly selected language
+
 ## [1.2.0] - 2026-08-14
 
 ### Added

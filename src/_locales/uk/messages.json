@@ -648,7 +648,7 @@
     "message": "Перетворення тексту на мовлення (TTS)"
   },
   "ttsDescription": {
-    "message": "Увімкнути відтворення аудіо для карток з використанням Google Cloud TTS"
+    "message": "Увімкнути відтворення аудіо для карток з використанням Google Cloud TTS або ElevenLabs"
   },
   "securityNoticeTitle": {
     "message": "Повідомлення про безпеку"
@@ -789,7 +789,13 @@
     "message": "API-ключ збережено"
   },
   "apiKeySavedDesc": {
-    "message": "Ваш API-ключ Google TTS було успішно збережено. Оберіть мову та модель для завантаження голосів."
+    "message": "Ваш API-ключ $PROVIDER$ було успішно збережено. Оберіть мову та модель для завантаження голосів.",
+    "placeholders": {
+      "provider": {
+        "content": "$1",
+        "example": "ElevenLabs"
+      }
+    }
   },
   "failedToSaveApiKey": {
     "message": "Не вдалося зберегти API-ключ"
@@ -978,7 +984,13 @@
     "message": "Ці теги будуть додані до всіх імпортованих карток на додаток до будь-яких тегів з файлу Anki"
   },
   "enterApiKeyPlaceholder": {
-    "message": "Введіть API-ключ Google Cloud TTS"
+    "message": "Введіть API-ключ $PROVIDER$",
+    "placeholders": {
+      "provider": {
+        "content": "$1",
+        "example": "ElevenLabs"
+      }
+    }
   },
   "apiKeySavedPlaceholder": {
     "message": "API-ключ збережено • Введіть новий для заміни"
@@ -2130,6 +2142,44 @@
   },
   "clozeContentHelper": {
     "message": "Оберніть текст, який хочете приховати, в {{c1::текст}} для першої картки, {{c2::текст}} для другої тощо. Можна додати підказки: {{c1::відповідь::підказка}}. Кожен пропуск створює окрему картку."
+  },
+  "ttsProvider": {
+    "message": "Провайдер"
+  },
+  "failedToSwitchProvider": {
+    "message": "Не вдалося змінити провайдера TTS"
+  },
+  "invalidElevenLabsApiKeyDesc": {
+    "message": "Введений вами API-ключ недійсний. Перевірте консоль браузера для деталей. Якщо ключ має обмежені дозволи, переконайтесь, що він може читати голоси."
+  },
+  "elevenLabsApiKeysPage": {
+    "message": "налаштувань API-ключів ElevenLabs"
+  },
+  "elevenLabsKeyPermissions": {
+    "message": "Якщо ви обмежуєте ключ, дозвольте доступ до Text to Speech та читання Voices."
+  },
+  "elevenMultilingualV2": {
+    "message": "Multilingual v2 (Стабільна, за замовчуванням)"
+  },
+  "elevenFlashV25": {
+    "message": "Flash v2.5 (Швидка, дешевша)"
+  },
+  "elevenV4": {
+    "message": "Eleven v4 (Найвиразніша)"
+  },
+  "elevenV4Turbo": {
+    "message": "Eleven v4 Turbo (Виразна, швидша)"
+  },
+  "elevenV3": {
+    "message": "Eleven v3"
+  },
+  "apiKeySavedLimitedAccess": {
+    "message": "API-ключ збережено, але провайдер повідомив: $MESSAGE$ Якщо ключ має обмежені дозволи, надайте йому доступ на читання Voices, щоб завантажити голоси.",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "The API key you used is missing the permission voices_read."
+      }
+    }
   }
 }
-

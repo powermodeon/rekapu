@@ -119,6 +119,22 @@ You can also study all your cards without visiting blocked sites:
 3. Go through all your due cards in a focused session
 4. All blocked sites become accessible when you're done
 
+## Listen to Your Cards (Text-to-Speech)
+
+Rekapu can read your cards aloud, which is great for language learning. Two providers are supported, and you bring your own API key:
+
+- **Google Cloud TTS** - hundreds of voices across many languages (Neural2, WaveNet, Chirp 3 HD, Studio)
+- **ElevenLabs** - very natural, expressive voices, including your own cloned voices
+
+To set it up:
+
+1. Open the **Dashboard** → **Settings** → **Text-to-Speech (TTS)**
+2. Pick a **Provider** and paste your API key (Google Cloud Console or ElevenLabs → Settings → API Keys)
+3. Try a voice with **Play Test**
+4. Turn on TTS for the tags you want spoken and choose the language, model, voice and card side for each tag
+
+Each provider keeps its own key and per-tag voices, so you can switch between them at any time.
+
 ## Next Steps
 
 You're all set! Here's what happens next:
@@ -137,7 +153,7 @@ Start with 10-20 quality cards. It's better to have fewer well-crafted cards tha
 If you're caught up on all your cards, Rekapu will show you a congratulatory message and let you through without blocking.
 
 ### Is my data private?
-Absolutely! All your cards and data are stored locally in your browser. Nothing is sent to any server.
+Absolutely! All your cards and data are stored locally in your browser. Nothing is sent to any server. The only exception is optional Text-to-Speech: if you enable it, the text being spoken is sent directly to the provider you chose (Google or ElevenLabs) using your own API key.
 
 
 ### How does the cooldown work?

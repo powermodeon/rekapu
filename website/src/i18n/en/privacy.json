@@ -40,13 +40,13 @@
     "title": "Third-Party Services",
     "tts": {
       "title": "Text-to-Speech (Optional)",
-      "description": "If you choose to enable Text-to-Speech functionality and provide your own Google Cloud TTS API key, audio synthesis requests are sent directly to Google's servers. We do not:",
+      "description": "If you choose to enable Text-to-Speech functionality and provide your own Google Cloud TTS or ElevenLabs API key, audio synthesis requests are sent directly to the provider you choose (Google or ElevenLabs). We do not:",
       "items": [
         "Store or access your API key",
         "See what content you're synthesizing",
         "Track your TTS usage"
       ],
-      "note": "Your API key is stored only in your browser's local storage. Google's privacy policy applies to TTS requests you make using your API key."
+      "note": "Your API key is stored only in your browser's local storage. The chosen provider's privacy policy (Google or ElevenLabs) applies to TTS requests you make using your API key."
     },
     "chromeWebStore": {
       "title": "Chrome Web Store",

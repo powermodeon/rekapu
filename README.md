@@ -30,7 +30,7 @@ Rekapu is a browser extension that combines spaced repetition learning with webs
 Science-backed algorithm that shows cards at optimal intervals. Rate difficulty (Again, Hard, Good, Easy) and let the algorithm handle scheduling for maximum retention.
 
 ### 🔊 Text-to-Speech
-Listen to your cards with natural voice synthesis powered by Google TTS. Perfect for audio learners and language practice. *Requires your own API key.*
+Listen to your cards with natural voice synthesis powered by Google Cloud TTS or ElevenLabs. Perfect for audio learners and language practice. *Requires your own API key.*
 
 ### 📊 Daily Goals & Streaks  
 Activity calendar visualizes your consistency. Build learning streaks, hit daily goals, and watch your progress compound over time.
